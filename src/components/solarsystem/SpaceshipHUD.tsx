@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import {
   Eye, EyeOff, Play, Pause, Rocket, Orbit,
   Navigation, Radio, ChevronDown, ChevronUp,
-  Lock, Terminal, Anchor, Square,
+  Lock, Terminal, Anchor, Square, Volume2, VolumeX,
 } from "lucide-react";
+import { useAmbientPad } from "@/hooks/useAmbientPad";
 import LanguagePicker from "@/components/LanguagePicker";
 import { isOwnerUnlocked } from "@/lib/ownerGate";
 import type { StarConfig } from "@/data/starRegistry";
@@ -47,6 +48,16 @@ export default function SpaceshipHUD({
   const [navQuery, setNavQuery] = useState("");
   const [feedExpanded, setFeedExpanded] = useState(true);
   const ownerMode = isOwnerUnlocked();
+  const { started: padStarted, start: startPad } = useAmbientPad(settings.feedMuted);
+
+  // Auto-start ambient pad on first user interaction
+  useEffect(() => {
+    if (padStarted) return;
+    const kick = () => { startPad(); window.removeEventListener("click", kick); window.removeEventListener("keydown", kick); };
+    window.addEventListener("click", kick, { once: true });
+    window.addEventListener("keydown", kick, { once: true });
+    return () => { window.removeEventListener("click", kick); window.removeEventListener("keydown", kick); };
+  }, [padStarted, startPad]);
 
   // H key toggle HUD, C key cancel autopilot
   useEffect(() => {
@@ -253,6 +264,10 @@ export default function SpaceshipHUD({
             <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
               onClick={() => onUpdate({ mouseLook: !settings.mouseLook })}>
               {settings.mouseLook ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />} نگاه ماوس
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
+              onClick={() => onUpdate({ feedMuted: !settings.feedMuted })}>
+              {settings.feedMuted ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />} صدای فضا
             </Button>
             <div className="flex gap-0.5">
               <Button
