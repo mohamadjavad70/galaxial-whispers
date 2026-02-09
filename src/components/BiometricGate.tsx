@@ -80,12 +80,20 @@ export default function BiometricGate({ open, onClose, onNavigate }: BiometricGa
   const handleScan = useCallback(async () => {
     setPhase("scanning");
     await startCamera();
-    // After scan animation, if not owner, show denied
+    // After scan, check if all permissions granted → commander identified
     setTimeout(() => {
-      if (!isOwnerUnlocked()) {
-        setPhase("denied");
-        logAction("biometric_denied", "sun");
-      }
+      // Re-check permissions state via ref workaround
+      setPermissions(current => {
+        if (current.camera && current.mic && current.location) {
+          unlockOwner();
+          setPhase("granted");
+          logAction("biometric_granted_permissions", "sun");
+        } else {
+          setPhase("denied");
+          logAction("biometric_denied", "sun");
+        }
+        return current;
+      });
     }, 2500);
   }, [startCamera]);
 
