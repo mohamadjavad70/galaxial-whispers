@@ -1,13 +1,15 @@
 import { useState, useCallback } from "react";
 
+export type HUDMode = "COMPACT" | "EXPANDED" | "CINEMATIC";
+
 export interface HUDSettings {
   showOrbits: boolean;
   showLabels: boolean;
   timeSpeed: number;
   paused: boolean;
-  hudVisible: boolean;
+  hudMode: HUDMode;
   mouseLook: boolean;
-  feedMuted: boolean;
+  audioMuted: boolean;
   inertia: number; // 0..1
 }
 
@@ -18,16 +20,27 @@ const defaults: HUDSettings = {
   showLabels: true,
   timeSpeed: 1,
   paused: false,
-  hudVisible: true,
+  hudMode: "COMPACT",
   mouseLook: true,
-  feedMuted: false,
+  audioMuted: false,
   inertia: 0.4,
 };
 
 function load(): HUDSettings {
   try {
     const s = localStorage.getItem(STORAGE_KEY);
-    return s ? { ...defaults, ...JSON.parse(s) } : defaults;
+    if (!s) return defaults;
+    const parsed = JSON.parse(s);
+    // Migrate old keys
+    if ("hudVisible" in parsed) {
+      parsed.hudMode = parsed.hudVisible ? (parsed.hudMode || "COMPACT") : "CINEMATIC";
+      delete parsed.hudVisible;
+    }
+    if ("feedMuted" in parsed) {
+      parsed.audioMuted = parsed.feedMuted;
+      delete parsed.feedMuted;
+    }
+    return { ...defaults, ...parsed };
   } catch {
     return defaults;
   }

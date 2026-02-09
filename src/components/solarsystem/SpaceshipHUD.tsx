@@ -1,24 +1,69 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Eye, EyeOff, Play, Pause, Rocket, Orbit,
+  Eye, Play, Pause, Rocket, Orbit,
   Navigation, Radio, ChevronDown, ChevronUp,
-  Lock, Terminal, Anchor, Square, Volume2, VolumeX,
+  Lock, Terminal, Square, Volume2, VolumeX,
+  Maximize2, Minimize2, Monitor, Copy, Check,
 } from "lucide-react";
 import { useAmbientPad } from "@/hooks/useAmbientPad";
 import LanguagePicker from "@/components/LanguagePicker";
 import { isOwnerUnlocked } from "@/lib/ownerGate";
 import type { StarConfig } from "@/data/starRegistry";
-import type { HUDSettings } from "@/hooks/useHUDSettings";
+import type { HUDSettings, HUDMode } from "@/hooks/useHUDSettings";
 import type { NavMode, FlightTelemetry } from "./FlightCore";
-import { getLedger } from "@/lib/geneticHash";
+import { getLedger, type LedgerEntry } from "@/lib/geneticHash";
 
+/* ── helpers ── */
 const speedPresets = [0.25, 1, 4, 16];
+const G = "bg-card/20 backdrop-blur-xl border border-border/10 rounded-lg"; // glass
 
+interface GroupedSignal {
+  action: string;
+  starSlug: string;
+  hash: string;
+  count: number;
+  timestamp: number;
+}
+
+function groupLedger(entries: LedgerEntry[], limit = 20): GroupedSignal[] {
+  const recent = entries.slice(-limit).reverse();
+  const groups: GroupedSignal[] = [];
+  const seen = new Map<string, number>(); // key → index in groups
+  for (const e of recent) {
+    const key = `${e.action}|${e.starSlug}`;
+    const idx = seen.get(key);
+    if (idx !== undefined) {
+      groups[idx].count++;
+    } else {
+      seen.set(key, groups.length);
+      groups.push({ action: e.action, starSlug: e.starSlug, hash: e.hash, count: 1, timestamp: e.timestamp });
+    }
+  }
+  return groups.slice(0, 8);
+}
+
+/* ── Chip toggle ── */
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded-full text-[8px] font-medium border transition-all ${
+        active
+          ? "bg-primary/15 border-primary/30 text-primary"
+          : "bg-card/10 border-border/10 text-muted-foreground/50 hover:text-muted-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ── Props ── */
 interface SpaceshipHUDProps {
   settings: HUDSettings;
   onUpdate: (patch: Partial<HUDSettings>) => void;
@@ -46,26 +91,34 @@ export default function SpaceshipHUD({
 }: SpaceshipHUDProps) {
   const navigate = useNavigate();
   const [navQuery, setNavQuery] = useState("");
-  const [feedExpanded, setFeedExpanded] = useState(true);
+  const [signalsOpen, setSignalsOpen] = useState(false);
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const ownerMode = isOwnerUnlocked();
-  const { started: padStarted, start: startPad } = useAmbientPad(settings.feedMuted);
+  const mode = settings.hudMode;
 
-  // Auto-start ambient pad on first user interaction
+  // Ambient pad
+  const { started: padStarted, start: startPad } = useAmbientPad(settings.audioMuted);
   useEffect(() => {
     if (padStarted) return;
-    const kick = () => { startPad(); window.removeEventListener("click", kick); window.removeEventListener("keydown", kick); };
+    const kick = () => { startPad(); };
     window.addEventListener("click", kick, { once: true });
     window.addEventListener("keydown", kick, { once: true });
     return () => { window.removeEventListener("click", kick); window.removeEventListener("keydown", kick); };
   }, [padStarted, startPad]);
 
-  // H key toggle HUD, C key cancel autopilot
+  // Keyboard: H = cinematic toggle, Tab = compact/expanded toggle, C = cancel autopilot
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const key = e.key.toLowerCase();
       if (key === "h" && !e.ctrlKey && !e.metaKey) {
-        onUpdate({ hudVisible: !settings.hudVisible });
+        onUpdate({ hudMode: mode === "CINEMATIC" ? "COMPACT" : "CINEMATIC" });
+      }
+      if (key === "tab" && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (mode !== "CINEMATIC") {
+          onUpdate({ hudMode: mode === "COMPACT" ? "EXPANDED" : "COMPACT" });
+        }
       }
       if (key === "c" && navMode === "AUTOPILOT") {
         onCancelAutopilot();
@@ -73,7 +126,7 @@ export default function SpaceshipHUD({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [settings.hudVisible, onUpdate, navMode, onCancelAutopilot]);
+  }, [mode, onUpdate, navMode, onCancelAutopilot]);
 
   const handleNavKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -82,20 +135,27 @@ export default function SpaceshipHUD({
         setNavQuery("");
       }
     },
-    [navQuery, onNavSubmit]
+    [navQuery, onNavSubmit],
   );
 
-  const ledger = getLedger().slice(-4).reverse();
+  const copyHash = useCallback((hash: string) => {
+    navigator.clipboard.writeText(hash);
+    setCopiedHash(hash);
+    setTimeout(() => setCopiedHash(null), 1200);
+  }, []);
 
-  const modeLabel = navMode === "FREE" ? "کاوشگر" : navMode === "AUTOPILOT" ? "اتوپایلوت" : "فوکوس";
-  const modeLabelEn = navMode === "FREE" ? "Free" : navMode === "AUTOPILOT" ? "Autopilot" : "Focus";
+  const signals = useMemo(() => groupLedger(getLedger()), [telemetry]); // re-derive on telemetry snapshot
 
-  // Hidden mode
-  if (!settings.hudVisible) {
+  const modeLabel = navMode === "FREE" ? "آزاد" : navMode === "AUTOPILOT" ? "اتوپایلوت" : "فوکوس";
+  const modeLabelEn = navMode === "FREE" ? "FREE" : navMode === "AUTOPILOT" ? "AUTO" : "FOCUS";
+  const expanded = mode === "EXPANDED";
+
+  /* ── CINEMATIC ── */
+  if (mode === "CINEMATIC") {
     return (
       <button
-        onClick={() => onUpdate({ hudVisible: true })}
-        className="absolute top-3 right-3 z-20 pointer-events-auto bg-card/20 backdrop-blur-sm rounded-full p-2 border border-border/10 text-muted-foreground/50 hover:text-foreground transition-colors"
+        onClick={() => onUpdate({ hudMode: "COMPACT" })}
+        className="absolute top-3 right-3 z-20 pointer-events-auto bg-card/10 backdrop-blur-sm rounded-full p-2 border border-border/5 text-muted-foreground/30 hover:text-foreground/60 transition-colors"
         title="Show HUD (H)"
       >
         <Eye className="w-3.5 h-3.5" />
@@ -103,55 +163,58 @@ export default function SpaceshipHUD({
     );
   }
 
-  const glassPanel = "bg-card/25 backdrop-blur-xl border border-border/15 rounded-xl";
-
   return (
     <div className="absolute inset-0 z-20 pointer-events-none" dir="rtl">
       {/* ─── Top Bar ─── */}
-      <div className="flex items-center justify-between p-3 md:p-4">
-        <div className={`pointer-events-auto flex items-center gap-2 ${glassPanel} px-3 py-1.5`}>
-          <span className="text-primary font-bold text-xs tracking-wider">QMETARAM</span>
-          <span className="text-border/40">|</span>
-          <span className="text-foreground text-[10px]">{modeLabel}</span>
-          <span className="text-muted-foreground/40 text-[8px]">{modeLabelEn}</span>
+      <div className="flex items-center justify-between px-3 py-2 md:px-4">
+        <div className={`pointer-events-auto flex items-center gap-2 ${G} px-3 py-1`}>
+          <span className="text-primary font-bold text-[10px] tracking-widest">Q</span>
+          <span className="w-px h-3 bg-border/20" />
+          <span className="text-foreground text-[9px] font-medium">{modeLabel}</span>
+          <span className="text-muted-foreground/30 text-[7px]">{modeLabelEn}</span>
           {navMode === "AUTOPILOT" && autopilotName && (
-            <Badge className="text-[8px] bg-accent/20 text-accent border-none px-1.5 py-0">
-              ← {autopilotName}
+            <Badge className="text-[7px] bg-accent/15 text-accent border-none px-1.5 py-0 ml-1">
+              → {autopilotName}
               {telemetry.autopilotDist > 0 && (
-                <span className="ml-1 text-muted-foreground">
+                <span className="ml-1 text-muted-foreground/60">
                   {telemetry.autopilotDist.toFixed(0)}u
                   {telemetry.autopilotETA > 0 && ` ~${telemetry.autopilotETA.toFixed(0)}s`}
                 </span>
               )}
             </Badge>
           )}
-          <span className="text-border/40">|</span>
-          <span className="text-primary/60 text-[9px]">● متصل</span>
+          <span className="w-px h-3 bg-border/20" />
+          <span className="text-emerald-500/60 text-[7px]">●</span>
         </div>
-        <div className="pointer-events-auto flex items-center gap-1.5">
-          <LanguagePicker compact className="mr-1" />
+
+        <div className="pointer-events-auto flex items-center gap-1">
+          <LanguagePicker compact />
           {ownerMode ? (
             <button
               onClick={() => navigate("/command-center")}
-              className={`${glassPanel} px-2 py-1 text-[9px] text-primary hover:text-foreground transition-colors flex items-center gap-1`}
-              title="Command Center"
+              className={`${G} px-2 py-1 text-[8px] text-primary hover:text-foreground transition-colors flex items-center gap-1`}
             >
-              <Terminal className="w-3 h-3" /> فرمان
+              <Terminal className="w-2.5 h-2.5" />
             </button>
           ) : (
-            <button
-              className={`${glassPanel} px-2 py-1 text-[9px] text-muted-foreground/40 flex items-center gap-1 cursor-default`}
-              title="فقط برای فرمانده"
-            >
-              <Lock className="w-3 h-3" />
-            </button>
+            <span className={`${G} px-2 py-1 text-[8px] text-muted-foreground/25`} title="فقط برای فرمانده">
+              <Lock className="w-2.5 h-2.5" />
+            </span>
           )}
+          {/* Mode toggles */}
           <button
-            onClick={() => onUpdate({ hudVisible: false })}
-            className={`${glassPanel} p-1.5 text-muted-foreground hover:text-foreground transition-colors`}
-            title="Hide HUD (H)"
+            onClick={() => onUpdate({ hudMode: expanded ? "COMPACT" : "EXPANDED" })}
+            className={`${G} p-1 text-muted-foreground/50 hover:text-foreground transition-colors`}
+            title={expanded ? "Compact (Tab)" : "Expand (Tab)"}
           >
-            <EyeOff className="w-3.5 h-3.5" />
+            {expanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+          </button>
+          <button
+            onClick={() => onUpdate({ hudMode: "CINEMATIC" })}
+            className={`${G} p-1 text-muted-foreground/50 hover:text-foreground transition-colors`}
+            title="Cinematic (H)"
+          >
+            <Monitor className="w-3 h-3" />
           </button>
         </div>
       </div>
@@ -159,216 +222,204 @@ export default function SpaceshipHUD({
       {/* ─── Center Reticle ─── */}
       {navMode === "FREE" && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-          <div className="relative w-7 h-7">
-            <div className="absolute inset-0 border border-primary/15 rounded-full" />
-            <div className="absolute top-1/2 left-0 w-1.5 h-px bg-primary/25" />
-            <div className="absolute top-1/2 right-0 w-1.5 h-px bg-primary/25" />
-            <div className="absolute top-0 left-1/2 w-px h-1.5 bg-primary/25 -translate-x-px" />
-            <div className="absolute bottom-0 left-1/2 w-px h-1.5 bg-primary/25 -translate-x-px" />
+          <div className="relative w-6 h-6">
+            <div className="absolute inset-0 border border-primary/10 rounded-full" />
+            <div className="absolute top-1/2 left-0 w-1 h-px bg-primary/20" />
+            <div className="absolute top-1/2 right-0 w-1 h-px bg-primary/20" />
+            <div className="absolute top-0 left-1/2 w-px h-1 bg-primary/20 -translate-x-px" />
+            <div className="absolute bottom-0 left-1/2 w-px h-1 bg-primary/20 -translate-x-px" />
           </div>
         </div>
       )}
 
       {/* ─── Focused Planet Info ─── */}
       {navMode === "FOCUS" && focusedStar && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-16 pointer-events-none">
-          <div className={`${glassPanel} px-5 py-3 text-center`}>
-            <p className="text-foreground font-bold">{focusedStar.displayNameFa}</p>
-            <p className="text-muted-foreground text-xs">{focusedStar.displayNameEn}</p>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-14 pointer-events-none">
+          <div className={`${G} px-5 py-3 text-center`}>
+            <p className="text-foreground font-bold text-sm">{focusedStar.displayNameFa}</p>
+            <p className="text-muted-foreground/50 text-[10px]">{focusedStar.displayNameEn}</p>
             <p className="text-muted-foreground text-[10px] mt-1">{focusedStar.missionFa}</p>
-            <p className="text-muted-foreground/60 text-[9px]">{focusedStar.missionEn}</p>
+            <p className="text-muted-foreground/40 text-[8px]">{focusedStar.missionEn}</p>
           </div>
         </div>
       )}
 
-      {/* ─── Bottom Panels ─── */}
-      <div className="absolute bottom-3 left-3 right-3 md:bottom-4 md:left-4 md:right-4 flex items-end justify-between gap-3">
-        {/* ─── Right Panel: Telemetry + Time + Toggles ─── */}
-        <div className={`pointer-events-auto ${glassPanel} p-3 space-y-2.5 min-w-[190px] max-w-[230px]`}>
-          {/* Telemetry */}
-          <div className="space-y-1">
-            <p className="text-primary text-[10px] font-bold">تلمتری پرواز</p>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]">
-              <span className="text-muted-foreground">سرعت:</span>
-              <span className="text-foreground font-mono">{telemetry.speed.toFixed(1)}</span>
-              <span className="text-muted-foreground">ارتفاع:</span>
-              <span className="text-foreground font-mono">{telemetry.altitude.toFixed(1)}</span>
-              <span className="text-muted-foreground">X:</span>
-              <span className="text-foreground font-mono">{telemetry.position[0].toFixed(0)}</span>
-              <span className="text-muted-foreground">Z:</span>
-              <span className="text-foreground font-mono">{telemetry.position[2].toFixed(0)}</span>
-            </div>
+      {/* ─── Bottom Area ─── */}
+      <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3 flex items-end justify-between gap-2">
+
+        {/* ─── RIGHT: Telemetry + Controls ─── */}
+        <div className={`pointer-events-auto ${G} p-2.5 space-y-2 min-w-[170px] max-w-[210px]`}>
+          {/* Compact telemetry */}
+          <div className="flex items-center justify-between">
+            <span className="text-primary/70 text-[8px] font-bold tracking-wide">تلمتری</span>
+            <span className="text-foreground/80 font-mono text-[9px]">
+              {telemetry.speed.toFixed(1)} <span className="text-muted-foreground/40">v</span>
+            </span>
+          </div>
+          <div className="flex gap-3 text-[8px]">
+            <span className="text-muted-foreground/50">h<span className="text-foreground/70 font-mono ml-0.5">{telemetry.altitude.toFixed(0)}</span></span>
+            <span className="text-muted-foreground/50">x<span className="text-foreground/70 font-mono ml-0.5">{telemetry.position[0].toFixed(0)}</span></span>
+            <span className="text-muted-foreground/50">z<span className="text-foreground/70 font-mono ml-0.5">{telemetry.position[2].toFixed(0)}</span></span>
           </div>
 
-          {/* Time Controls */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <p className="text-primary text-[10px] font-bold">زمان مدار</p>
-              <Button
-                variant="ghost" size="icon"
-                className="h-5 w-5 text-foreground"
-                onClick={() => onUpdate({ paused: !settings.paused })}
-              >
-                {settings.paused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-              </Button>
-            </div>
-            <div className="flex gap-0.5">
-              {speedPresets.map((s) => (
-                <Button
-                  key={s}
-                  variant={settings.timeSpeed === s ? "default" : "outline"}
-                  size="sm"
-                  className="h-5 text-[8px] px-1.5 flex-1"
-                  onClick={() => onUpdate({ timeSpeed: s })}
-                >
-                  {s}x
-                </Button>
-              ))}
-            </div>
-            <div>
-              <p className="text-muted-foreground text-[8px] mb-0.5">اسکرول: {timeScrub}</p>
-              <Slider
-                value={[timeScrub]}
-                onValueChange={([v]) => onTimeScrub(v)}
-                min={-1000}
-                max={1000}
-                step={5}
-                className="w-full"
-              />
-            </div>
+          {/* Expanded: Time controls + inertia */}
+          {expanded && (
+            <>
+              <div className="border-t border-border/10 pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-primary/70 text-[8px] font-bold">زمان مدار</span>
+                  <Button variant="ghost" size="icon" className="h-4 w-4 text-foreground/60"
+                    onClick={() => onUpdate({ paused: !settings.paused })}>
+                    {settings.paused ? <Play className="w-2.5 h-2.5" /> : <Pause className="w-2.5 h-2.5" />}
+                  </Button>
+                </div>
+                <div className="flex gap-0.5">
+                  {speedPresets.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => onUpdate({ timeSpeed: s })}
+                      className={`flex-1 text-center py-0.5 rounded text-[7px] font-mono transition-colors ${
+                        settings.timeSpeed === s
+                          ? "bg-primary/15 text-primary"
+                          : "text-muted-foreground/40 hover:text-foreground/60"
+                      }`}
+                    >
+                      {s}×
+                    </button>
+                  ))}
+                </div>
+                <Slider
+                  value={[timeScrub]}
+                  onValueChange={([v]) => onTimeScrub(v)}
+                  min={-1000} max={1000} step={5}
+                  className="w-full"
+                />
+              </div>
+              <div className="border-t border-border/10 pt-1.5">
+                <span className="text-muted-foreground/40 text-[7px]">اینرسی {(settings.inertia * 100).toFixed(0)}%</span>
+                <Slider
+                  value={[settings.inertia]}
+                  onValueChange={([v]) => onUpdate({ inertia: v })}
+                  min={0} max={1} step={0.05}
+                  className="w-full"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Chip toggles */}
+          <div className="flex flex-wrap gap-1">
+            <Chip active={settings.showOrbits} onClick={() => onUpdate({ showOrbits: !settings.showOrbits })}>مدارها</Chip>
+            <Chip active={settings.showLabels} onClick={() => onUpdate({ showLabels: !settings.showLabels })}>برچسب</Chip>
+            <Chip active={settings.mouseLook} onClick={() => onUpdate({ mouseLook: !settings.mouseLook })}>نگاه</Chip>
+            <Chip active={!settings.audioMuted} onClick={() => onUpdate({ audioMuted: !settings.audioMuted })}>
+              {settings.audioMuted ? <VolumeX className="w-2 h-2 inline -mt-px" /> : <Volume2 className="w-2 h-2 inline -mt-px" />}
+            </Chip>
           </div>
 
-          {/* Inertia Slider */}
-          <div>
-            <p className="text-muted-foreground text-[8px] mb-0.5">اینرسی: {(settings.inertia * 100).toFixed(0)}%</p>
-            <Slider
-              value={[settings.inertia]}
-              onValueChange={([v]) => onUpdate({ inertia: v })}
-              min={0}
-              max={1}
-              step={0.05}
-              className="w-full"
-            />
-          </div>
-
-          {/* Toggles */}
-          <div className="space-y-0.5">
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
-              onClick={() => onUpdate({ showOrbits: !settings.showOrbits })}>
-              {settings.showOrbits ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />} مدارها
-            </Button>
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
-              onClick={() => onUpdate({ showLabels: !settings.showLabels })}>
-              {settings.showLabels ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />} برچسب‌ها
-            </Button>
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
-              onClick={() => onUpdate({ mouseLook: !settings.mouseLook })}>
-              {settings.mouseLook ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />} نگاه ماوس
-            </Button>
-            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
-              onClick={() => onUpdate({ feedMuted: !settings.feedMuted })}>
-              {settings.feedMuted ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />} صدای فضا
-            </Button>
-            <div className="flex gap-0.5">
-              <Button
-                variant={navMode === "FREE" ? "default" : "outline"}
-                size="sm"
-                className="flex-1 justify-center gap-1 text-[9px] h-5"
-                onClick={onToggleExplorer}
-              >
-                {navMode === "FREE" ? <Rocket className="w-2.5 h-2.5" /> : <Orbit className="w-2.5 h-2.5" />}
-                {navMode === "FREE" ? "آزاد" : "اوربیت"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 justify-center gap-1 text-[9px] h-5"
-                onClick={onBrake}
-                title="ترمز (Space)"
-              >
-                <Square className="w-2.5 h-2.5" /> ترمز
-              </Button>
-            </div>
+          {/* Action row */}
+          <div className="flex gap-1">
+            <button
+              onClick={onToggleExplorer}
+              className={`flex-1 flex items-center justify-center gap-1 py-1 rounded text-[8px] font-medium transition-colors ${
+                navMode === "FREE" ? "bg-primary/15 text-primary" : "bg-card/15 text-muted-foreground/60"
+              }`}
+            >
+              {navMode === "FREE" ? <Rocket className="w-2.5 h-2.5" /> : <Orbit className="w-2.5 h-2.5" />}
+              {navMode === "FREE" ? "آزاد" : "اوربیت"}
+            </button>
+            <button
+              onClick={onBrake}
+              className="flex-1 flex items-center justify-center gap-1 py-1 rounded text-[8px] bg-card/15 text-muted-foreground/60 hover:text-foreground transition-colors"
+              title="ترمز (Space)"
+            >
+              <Square className="w-2.5 h-2.5" /> ترمز
+            </button>
           </div>
         </div>
 
-        {/* ─── Left Panel: Nav Console + Signals ─── */}
-        <div className="pointer-events-auto space-y-2 min-w-[190px] max-w-[230px]">
+        {/* ─── LEFT: Nav Console + Signals ─── */}
+        <div className="pointer-events-auto space-y-1.5 min-w-[170px] max-w-[210px]">
           {/* Nav Console */}
-          <div className={`${glassPanel} p-3 space-y-2`}>
-            <p className="text-primary text-[10px] font-bold">کنسول ناوبری</p>
+          <div className={`${G} p-2.5 space-y-1.5`}>
             <div className="flex gap-1">
               <Input
                 value={navQuery}
                 onChange={(e) => setNavQuery(e.target.value)}
                 placeholder="برو به سیاره..."
-                className="text-[10px] h-6 bg-input/30 border-border/20 text-foreground"
+                className="text-[9px] h-5 bg-input/20 border-border/10 text-foreground placeholder:text-muted-foreground/30"
                 dir="rtl"
                 onKeyDown={handleNavKeyDown}
               />
-              <Button size="sm" className="h-6 px-2" onClick={() => {
+              <Button size="sm" className="h-5 px-1.5 bg-primary/15 hover:bg-primary/25 border-none" onClick={() => {
                 if (navQuery.trim()) { onNavSubmit(navQuery.trim()); setNavQuery(""); }
               }}>
-                <Navigation className="w-3 h-3" />
+                <Navigation className="w-2.5 h-2.5 text-primary" />
               </Button>
             </div>
             {navMode === "AUTOPILOT" && (
-              <Button variant="outline" size="sm" className="w-full text-[9px] h-5" onClick={onCancelAutopilot}>
+              <button className="w-full text-[8px] py-1 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors" onClick={onCancelAutopilot}>
                 لغو اتوپایلوت (C)
-              </Button>
+              </button>
             )}
             {navMode === "FOCUS" && (
               <div className="flex gap-1">
-                <Button variant="outline" size="sm" className="flex-1 text-[9px] h-5" onClick={onReleaseFocus}>
+                <button className="flex-1 text-[8px] py-1 rounded bg-card/15 text-muted-foreground hover:text-foreground transition-colors" onClick={onReleaseFocus}>
                   آزاد
-                </Button>
-                <Button size="sm" className="flex-1 text-[9px] h-5" onClick={onEnterWorld}>
+                </button>
+                <button className="flex-1 text-[8px] py-1 rounded bg-primary/15 text-primary hover:bg-primary/25 transition-colors" onClick={onEnterWorld}>
                   ورود ✦
-                </Button>
+                </button>
               </div>
             )}
-            {/* Quick planet buttons */}
-            <div className="flex flex-wrap gap-1">
+            {/* Quick planet pills */}
+            <div className="flex flex-wrap gap-0.5">
               {stars.slice(0, 7).map((s) => (
                 <button
                   key={s.slug}
                   onClick={() => onQuickPlanet(s.slug)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary/20 hover:bg-secondary/40 transition-colors text-[8px] text-foreground"
+                  className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors text-[7px] text-foreground/60 hover:text-foreground"
+                  style={{ backgroundColor: `${s.chakraColor}15`, borderLeft: `2px solid ${s.chakraColor}40` }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: s.chakraColor }} />
                   {s.displayNameFa}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Signals Feed */}
-          <div className={`${glassPanel} p-3`}>
-            <div className="flex items-center justify-between">
-              <p className="text-primary text-[10px] font-bold flex items-center gap-1">
+          {/* Signals (grouped) */}
+          <div className={`${G} p-2.5`}>
+            <button
+              className="flex items-center justify-between w-full"
+              onClick={() => setSignalsOpen((v) => !v)}
+            >
+              <span className="text-primary/60 text-[8px] font-bold flex items-center gap-1">
                 <Radio className="w-2.5 h-2.5" /> سیگنال‌ها
-              </p>
-              <div className="flex gap-0.5">
-                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => onUpdate({ feedMuted: !settings.feedMuted })}>
-                  {settings.feedMuted ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
-                </Button>
-                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setFeedExpanded(!feedExpanded)}>
-                  {feedExpanded ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronUp className="w-2.5 h-2.5" />}
-                </Button>
-              </div>
-            </div>
-            {feedExpanded && !settings.feedMuted && (
-              <div className="mt-1.5 space-y-1">
-                {ledger.length === 0 && (
-                  <p className="text-muted-foreground/50 text-[9px]">هنوز سیگنالی نیست</p>
+                {signals.length > 0 && (
+                  <span className="bg-primary/10 text-primary/60 text-[7px] px-1 rounded-full">{signals.length}</span>
                 )}
-                {ledger.map((e, i) => (
-                  <div key={i} className="flex items-center gap-1.5 text-[9px]">
-                    <Badge variant="outline" className="text-[7px] px-1 py-0 font-mono text-muted-foreground border-border/20">
-                      {e.hash.slice(0, 6)}
-                    </Badge>
-                    <span className="text-foreground truncate">{e.action}</span>
-                    <span className="text-muted-foreground text-[8px] mr-auto">{e.starSlug}</span>
+              </span>
+              {signalsOpen ? <ChevronDown className="w-2.5 h-2.5 text-muted-foreground/30" /> : <ChevronUp className="w-2.5 h-2.5 text-muted-foreground/30" />}
+            </button>
+            {signalsOpen && (
+              <div className="mt-1.5 space-y-0.5">
+                {signals.length === 0 && (
+                  <p className="text-muted-foreground/30 text-[8px]">هنوز سیگنالی نیست</p>
+                )}
+                {signals.map((s, i) => (
+                  <div key={i} className="flex items-center gap-1 text-[8px] group">
+                    <span className="text-foreground/70 truncate flex-1">{s.action}</span>
+                    {s.count > 1 && (
+                      <span className="text-primary/40 text-[7px]">×{s.count}</span>
+                    )}
+                    <span className="text-muted-foreground/30 text-[7px] truncate max-w-[40px]">{s.starSlug}</span>
+                    <button
+                      onClick={() => copyHash(s.hash)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-foreground"
+                      title={s.hash}
+                    >
+                      {copiedHash === s.hash ? <Check className="w-2 h-2 text-emerald-400" /> : <Copy className="w-2 h-2" />}
+                    </button>
                   </div>
                 ))}
               </div>
