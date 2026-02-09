@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import SolarSystemScene from "@/components/SolarSystemScene";
-import SunGateModal from "@/components/SunGateModal";
+import BiometricGate from "@/components/BiometricGate";
 import GolGolab from "@/components/GolGolab";
 import ChatOverlay from "@/components/ChatOverlay";
 import { emitGolGolabEvent } from "@/components/ChatOverlay";
@@ -64,7 +64,7 @@ export default function Index() {
         </motion.p>
       </div>
 
-      <SunGateModal open={sunGateOpen} onClose={() => setSunGateOpen(false)} onNavigate={handleNavigate} />
+      <BiometricGate open={sunGateOpen} onClose={() => setSunGateOpen(false)} onNavigate={handleNavigate} />
       <GolGolab onClick={() => setChatOpen(true)} />
       <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>
