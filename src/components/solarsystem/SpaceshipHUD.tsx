@@ -6,30 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Eye, EyeOff, Play, Pause, Rocket, Orbit,
-  Navigation, Radio, ChevronDown, ChevronUp, Lock, Terminal,
+  Navigation, Radio, ChevronDown, ChevronUp,
+  Lock, Terminal, Anchor, Square,
 } from "lucide-react";
 import LanguagePicker from "@/components/LanguagePicker";
 import { isOwnerUnlocked } from "@/lib/ownerGate";
 import type { StarConfig } from "@/data/starRegistry";
 import type { HUDSettings } from "@/hooks/useHUDSettings";
-import type { TelemetryData } from "./SpaceshipControls";
+import type { NavMode, FlightTelemetry } from "./FlightCore";
 import { getLedger } from "@/lib/geneticHash";
-
-/**
- * SpaceshipHUD — Glass cockpit overlay with telemetry, time controls,
- * nav console, signals feed, toggles, and center reticle.
- */
-
-type CameraMode = "freefly" | "focus" | "autopilot";
 
 const speedPresets = [0.25, 1, 4, 16];
 
 interface SpaceshipHUDProps {
   settings: HUDSettings;
   onUpdate: (patch: Partial<HUDSettings>) => void;
-  telemetry: TelemetryData;
+  telemetry: FlightTelemetry;
   stars: StarConfig[];
-  cameraMode: CameraMode;
+  navMode: NavMode;
   autopilotName: string | null;
   focusedStar: StarConfig | null;
   timeScrub: number;
@@ -40,30 +34,35 @@ interface SpaceshipHUDProps {
   onQuickPlanet: (slug: string) => void;
   onEnterWorld: () => void;
   onToggleExplorer: () => void;
+  onBrake: () => void;
 }
 
 export default function SpaceshipHUD({
-  settings, onUpdate, telemetry, stars, cameraMode,
+  settings, onUpdate, telemetry, stars, navMode,
   autopilotName, focusedStar, timeScrub, onTimeScrub,
   onNavSubmit, onCancelAutopilot, onReleaseFocus,
-  onQuickPlanet, onEnterWorld, onToggleExplorer,
+  onQuickPlanet, onEnterWorld, onToggleExplorer, onBrake,
 }: SpaceshipHUDProps) {
   const navigate = useNavigate();
   const [navQuery, setNavQuery] = useState("");
   const [feedExpanded, setFeedExpanded] = useState(true);
   const ownerMode = isOwnerUnlocked();
 
-  // H key toggle HUD
+  // H key toggle HUD, C key cancel autopilot
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key.toLowerCase() === "h" && !e.ctrlKey && !e.metaKey) {
+      const key = e.key.toLowerCase();
+      if (key === "h" && !e.ctrlKey && !e.metaKey) {
         onUpdate({ hudVisible: !settings.hudVisible });
+      }
+      if (key === "c" && navMode === "AUTOPILOT") {
+        onCancelAutopilot();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [settings.hudVisible, onUpdate]);
+  }, [settings.hudVisible, onUpdate, navMode, onCancelAutopilot]);
 
   const handleNavKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -77,7 +76,10 @@ export default function SpaceshipHUD({
 
   const ledger = getLedger().slice(-4).reverse();
 
-  // Hidden mode: tiny show button
+  const modeLabel = navMode === "FREE" ? "کاوشگر" : navMode === "AUTOPILOT" ? "اتوپایلوت" : "فوکوس";
+  const modeLabelEn = navMode === "FREE" ? "Free" : navMode === "AUTOPILOT" ? "Autopilot" : "Focus";
+
+  // Hidden mode
   if (!settings.hudVisible) {
     return (
       <button
@@ -90,7 +92,6 @@ export default function SpaceshipHUD({
     );
   }
 
-  const effectiveSpeed = settings.paused ? 0 : settings.timeSpeed;
   const glassPanel = "bg-card/25 backdrop-blur-xl border border-border/15 rounded-xl";
 
   return (
@@ -100,16 +101,21 @@ export default function SpaceshipHUD({
         <div className={`pointer-events-auto flex items-center gap-2 ${glassPanel} px-3 py-1.5`}>
           <span className="text-primary font-bold text-xs tracking-wider">QMETARAM</span>
           <span className="text-border/40">|</span>
-          <span className="text-foreground text-[10px]">
-            {cameraMode === "freefly" ? "کاوشگر" : cameraMode === "autopilot" ? "اتوپایلوت" : "فوکوس"}
-          </span>
-          {cameraMode === "autopilot" && autopilotName && (
+          <span className="text-foreground text-[10px]">{modeLabel}</span>
+          <span className="text-muted-foreground/40 text-[8px]">{modeLabelEn}</span>
+          {navMode === "AUTOPILOT" && autopilotName && (
             <Badge className="text-[8px] bg-accent/20 text-accent border-none px-1.5 py-0">
               ← {autopilotName}
+              {telemetry.autopilotDist > 0 && (
+                <span className="ml-1 text-muted-foreground">
+                  {telemetry.autopilotDist.toFixed(0)}u
+                  {telemetry.autopilotETA > 0 && ` ~${telemetry.autopilotETA.toFixed(0)}s`}
+                </span>
+              )}
             </Badge>
           )}
           <span className="text-border/40">|</span>
-          <span className="text-green-400 text-[9px]">● متصل</span>
+          <span className="text-primary/60 text-[9px]">● متصل</span>
         </div>
         <div className="pointer-events-auto flex items-center gap-1.5">
           <LanguagePicker compact className="mr-1" />
@@ -140,7 +146,7 @@ export default function SpaceshipHUD({
       </div>
 
       {/* ─── Center Reticle ─── */}
-      {cameraMode === "freefly" && (
+      {navMode === "FREE" && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
           <div className="relative w-7 h-7">
             <div className="absolute inset-0 border border-primary/15 rounded-full" />
@@ -152,8 +158,8 @@ export default function SpaceshipHUD({
         </div>
       )}
 
-      {/* ─── Focused Planet Info (center) ─── */}
-      {cameraMode === "focus" && focusedStar && (
+      {/* ─── Focused Planet Info ─── */}
+      {navMode === "FOCUS" && focusedStar && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-16 pointer-events-none">
           <div className={`${glassPanel} px-5 py-3 text-center`}>
             <p className="text-foreground font-bold">{focusedStar.displayNameFa}</p>
@@ -166,7 +172,7 @@ export default function SpaceshipHUD({
 
       {/* ─── Bottom Panels ─── */}
       <div className="absolute bottom-3 left-3 right-3 md:bottom-4 md:left-4 md:right-4 flex items-end justify-between gap-3">
-        {/* ─── Right Panel (appears left in RTL): Telemetry + Time + Toggles ─── */}
+        {/* ─── Right Panel: Telemetry + Time + Toggles ─── */}
         <div className={`pointer-events-auto ${glassPanel} p-3 space-y-2.5 min-w-[190px] max-w-[230px]`}>
           {/* Telemetry */}
           <div className="space-y-1">
@@ -221,6 +227,19 @@ export default function SpaceshipHUD({
             </div>
           </div>
 
+          {/* Inertia Slider */}
+          <div>
+            <p className="text-muted-foreground text-[8px] mb-0.5">اینرسی: {(settings.inertia * 100).toFixed(0)}%</p>
+            <Slider
+              value={[settings.inertia]}
+              onValueChange={([v]) => onUpdate({ inertia: v })}
+              min={0}
+              max={1}
+              step={0.05}
+              className="w-full"
+            />
+          </div>
+
           {/* Toggles */}
           <div className="space-y-0.5">
             <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-[9px] h-5 text-foreground"
@@ -235,19 +254,30 @@ export default function SpaceshipHUD({
               onClick={() => onUpdate({ mouseLook: !settings.mouseLook })}>
               {settings.mouseLook ? <Eye className="w-2.5 h-2.5" /> : <EyeOff className="w-2.5 h-2.5" />} نگاه ماوس
             </Button>
-            <Button
-              variant={cameraMode === "freefly" ? "default" : "outline"}
-              size="sm"
-              className="w-full justify-start gap-2 text-[9px] h-5"
-              onClick={onToggleExplorer}
-            >
-              {cameraMode === "freefly" ? <Rocket className="w-2.5 h-2.5" /> : <Orbit className="w-2.5 h-2.5" />}
-              {cameraMode === "freefly" ? "کاوشگر فعال" : "مدار خودکار"}
-            </Button>
+            <div className="flex gap-0.5">
+              <Button
+                variant={navMode === "FREE" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 justify-center gap-1 text-[9px] h-5"
+                onClick={onToggleExplorer}
+              >
+                {navMode === "FREE" ? <Rocket className="w-2.5 h-2.5" /> : <Orbit className="w-2.5 h-2.5" />}
+                {navMode === "FREE" ? "آزاد" : "اوربیت"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 justify-center gap-1 text-[9px] h-5"
+                onClick={onBrake}
+                title="ترمز (Space)"
+              >
+                <Square className="w-2.5 h-2.5" /> ترمز
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* ─── Left Panel (appears right in RTL): Nav Console + Signals ─── */}
+        {/* ─── Left Panel: Nav Console + Signals ─── */}
         <div className="pointer-events-auto space-y-2 min-w-[190px] max-w-[230px]">
           {/* Nav Console */}
           <div className={`${glassPanel} p-3 space-y-2`}>
@@ -267,12 +297,12 @@ export default function SpaceshipHUD({
                 <Navigation className="w-3 h-3" />
               </Button>
             </div>
-            {cameraMode === "autopilot" && (
+            {navMode === "AUTOPILOT" && (
               <Button variant="outline" size="sm" className="w-full text-[9px] h-5" onClick={onCancelAutopilot}>
-                لغو اتوپایلوت
+                لغو اتوپایلوت (C)
               </Button>
             )}
-            {cameraMode === "focus" && (
+            {navMode === "FOCUS" && (
               <div className="flex gap-1">
                 <Button variant="outline" size="sm" className="flex-1 text-[9px] h-5" onClick={onReleaseFocus}>
                   آزاد
@@ -297,7 +327,7 @@ export default function SpaceshipHUD({
             </div>
           </div>
 
-          {/* Signals & Ranks Feed */}
+          {/* Signals Feed */}
           <div className={`${glassPanel} p-3`}>
             <div className="flex items-center justify-between">
               <p className="text-primary text-[10px] font-bold flex items-center gap-1">

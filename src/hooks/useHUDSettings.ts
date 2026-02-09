@@ -8,6 +8,7 @@ export interface HUDSettings {
   hudVisible: boolean;
   mouseLook: boolean;
   feedMuted: boolean;
+  inertia: number; // 0..1
 }
 
 const STORAGE_KEY = "qmetaram-hud-settings";
@@ -20,6 +21,7 @@ const defaults: HUDSettings = {
   hudVisible: true,
   mouseLook: true,
   feedMuted: false,
+  inertia: 0.4,
 };
 
 function load(): HUDSettings {
