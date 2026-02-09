@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import SolarSystemScene from "@/components/SolarSystemScene";
+import SunGateModal from "@/components/SunGateModal";
 import GolGolab from "@/components/GolGolab";
 import ChatOverlay from "@/components/ChatOverlay";
 import { emitGolGolabEvent } from "@/components/ChatOverlay";
@@ -10,6 +11,7 @@ import { getContentBlocks } from "@/data/contentBlocks";
 export default function Index() {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const [sunGateOpen, setSunGateOpen] = useState(false);
   const blocks = getContentBlocks();
 
   useEffect(() => {
@@ -20,6 +22,10 @@ export default function Index() {
     navigate(path);
   }, [navigate]);
 
+  const handleSunClick = useCallback(() => {
+    setSunGateOpen(true);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -27,7 +33,7 @@ export default function Index() {
       exit={{ opacity: 0 }}
       className="relative w-full h-screen overflow-hidden bg-background"
     >
-      <SolarSystemScene onNavigate={handleNavigate} />
+      <SolarSystemScene onNavigate={handleNavigate} onSunClick={handleSunClick} />
 
       {/* Title overlay */}
       <div className="absolute inset-0 pointer-events-none flex flex-col items-center pt-8 z-10">
@@ -58,6 +64,7 @@ export default function Index() {
         </motion.p>
       </div>
 
+      <SunGateModal open={sunGateOpen} onClose={() => setSunGateOpen(false)} onNavigate={handleNavigate} />
       <GolGolab onClick={() => setChatOpen(true)} />
       <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>

@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import StarWorld from "./pages/StarWorld";
 import QCore from "./pages/QCore";
 import CommandCenter from "./pages/CommandCenter";
+import Command from "./pages/Command";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ function AnimatedRoutes() {
         <Route path="/star/:slug" element={<StarWorld />} />
         <Route path="/q" element={<QCore />} />
         <Route path="/command-center" element={<CommandCenter />} />
+        <Route path="/command" element={<Command />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

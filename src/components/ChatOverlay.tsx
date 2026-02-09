@@ -3,14 +3,17 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
+import TypingMessage from "@/components/TypingMessage";
 
 interface Message {
   role: "user" | "golab";
   text: string;
+  id: number;
 }
 
 const GREETING_KEY = "golgolab_greeted";
 const EVENT_PREFIX = "golgolab_evt_";
+let msgIdCounter = 0;
 
 const milestoneMessages: Record<string, string> = {
   first_galaxy_entry: "به کهکشان خوش اومدی! ✨ هر سیاره یه دنیای جدیده.",
@@ -34,10 +37,14 @@ function setFlag(key: string) {
   try { localStorage.setItem(key, "true"); } catch {}
 }
 
+function mkMsg(role: "user" | "golab", text: string): Message {
+  return { role, text, id: ++msgIdCounter };
+}
+
 function getInitialMessages(): Message[] {
   if (!hasFlag(GREETING_KEY)) {
     setFlag(GREETING_KEY);
-    return [{ role: "golab", text: "سلام! من گل‌گلاب هستم 🌸 خوشحالم که اینجایی!" }];
+    return [mkMsg("golab", "سلام! من گل‌گلاب هستم 🌸 خوشحالم که اینجایی!")];
   }
   return [];
 }
@@ -51,16 +58,18 @@ interface ChatOverlayProps {
 export default function ChatOverlay({ open, onOpenChange, starSlug }: ChatOverlayProps) {
   const [messages, setMessages] = useState<Message[]>(getInitialMessages);
   const [input, setInput] = useState("");
+  const [newestId, setNewestId] = useState<number | null>(null);
   const processedEvents = useRef<Set<string>>(new Set());
 
   const pushBotMessage = useCallback((text: string) => {
     setMessages((prev) => {
       if (prev.length > 0 && prev[prev.length - 1].text === text) return prev;
-      return [...prev, { role: "golab", text }];
+      const msg = mkMsg("golab", text);
+      setNewestId(msg.id);
+      return [...prev, msg];
     });
   }, []);
 
-  // Listen for milestone events dispatched from other components
   useEffect(() => {
     const handler = (e: Event) => {
       const eventName = (e as CustomEvent).detail as string;
@@ -78,8 +87,9 @@ export default function ChatOverlay({ open, onOpenChange, starSlug }: ChatOverla
 
   const send = () => {
     if (!input.trim()) return;
-    const userMsg: Message = { role: "user", text: input };
-    const reply: Message = { role: "golab", text: replies[Math.floor(Math.random() * replies.length)] };
+    const userMsg = mkMsg("user", input);
+    const reply = mkMsg("golab", replies[Math.floor(Math.random() * replies.length)]);
+    setNewestId(reply.id);
     setMessages((prev) => [...prev, userMsg, reply]);
     setInput("");
   };
@@ -94,14 +104,18 @@ export default function ChatOverlay({ open, onOpenChange, starSlug }: ChatOverla
           {messages.length === 0 && (
             <p className="text-xs text-muted-foreground text-center mt-8">پیامی نیست. سوالت رو بنویس!</p>
           )}
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
+          {messages.map((m) => (
+            <div key={m.id} className={`flex ${m.role === "user" ? "justify-start" : "justify-end"}`}>
               <div className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                 m.role === "user"
                   ? "bg-secondary text-secondary-foreground"
                   : "bg-primary/20 text-foreground"
               }`}>
-                {m.text}
+                {m.role === "golab" ? (
+                  <TypingMessage text={m.text} isNew={m.id === newestId} />
+                ) : (
+                  m.text
+                )}
               </div>
             </div>
           ))}

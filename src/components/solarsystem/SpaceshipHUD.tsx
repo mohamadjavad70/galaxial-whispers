@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Eye, EyeOff, Play, Pause, Rocket, Orbit,
-  Navigation, Radio, ChevronDown, ChevronUp,
+  Navigation, Radio, ChevronDown, ChevronUp, Lock, Terminal,
 } from "lucide-react";
+import LanguagePicker from "@/components/LanguagePicker";
+import { isOwnerUnlocked } from "@/lib/ownerGate";
 import type { StarConfig } from "@/data/starRegistry";
 import type { HUDSettings } from "@/hooks/useHUDSettings";
 import type { TelemetryData } from "./SpaceshipControls";
@@ -45,8 +48,10 @@ export default function SpaceshipHUD({
   onNavSubmit, onCancelAutopilot, onReleaseFocus,
   onQuickPlanet, onEnterWorld, onToggleExplorer,
 }: SpaceshipHUDProps) {
+  const navigate = useNavigate();
   const [navQuery, setNavQuery] = useState("");
   const [feedExpanded, setFeedExpanded] = useState(true);
+  const ownerMode = isOwnerUnlocked();
 
   // H key toggle HUD
   useEffect(() => {
@@ -106,13 +111,32 @@ export default function SpaceshipHUD({
           <span className="text-border/40">|</span>
           <span className="text-green-400 text-[9px]">● متصل</span>
         </div>
-        <button
-          onClick={() => onUpdate({ hudVisible: false })}
-          className={`pointer-events-auto ${glassPanel} p-1.5 text-muted-foreground hover:text-foreground transition-colors`}
-          title="Hide HUD (H)"
-        >
-          <EyeOff className="w-3.5 h-3.5" />
-        </button>
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          <LanguagePicker compact className="mr-1" />
+          {ownerMode ? (
+            <button
+              onClick={() => navigate("/command-center")}
+              className={`${glassPanel} px-2 py-1 text-[9px] text-primary hover:text-foreground transition-colors flex items-center gap-1`}
+              title="Command Center"
+            >
+              <Terminal className="w-3 h-3" /> فرمان
+            </button>
+          ) : (
+            <button
+              className={`${glassPanel} px-2 py-1 text-[9px] text-muted-foreground/40 flex items-center gap-1 cursor-default`}
+              title="فقط برای فرمانده"
+            >
+              <Lock className="w-3 h-3" />
+            </button>
+          )}
+          <button
+            onClick={() => onUpdate({ hudVisible: false })}
+            className={`${glassPanel} p-1.5 text-muted-foreground hover:text-foreground transition-colors`}
+            title="Hide HUD (H)"
+          >
+            <EyeOff className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* ─── Center Reticle ─── */}
