@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -6,22 +6,25 @@ import ProceduralPlanet from "@/components/galaxy/ProceduralPlanet";
 import type { StarConfig } from "@/data/starRegistry";
 
 /**
- * OrbitingPlanet — A planet orbiting the sun at a given radius and speed.
+ * OrbitingPlanet — Elliptical orbit, reports position to shared map.
  */
 
 interface OrbitingPlanetProps {
   star: StarConfig;
-  orbitRadius: number;
+  orbitRadiusX: number;
+  orbitRadiusZ: number;
   orbitSpeed: number;
   orbitOffset: number;
-  timeScale: number;
+  globalTimeRef: React.MutableRefObject<number>;
+  timeScrub: number;
   planetRadius: number;
+  showLabel: boolean;
   onClick: () => void;
   isHovered: boolean;
   onHover: (star: StarConfig | null) => void;
+  planetPositionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>;
 }
 
-// Derive planet colors from star config
 function getColors(star: StarConfig) {
   const base: Record<string, { base: string; accent: string; clouds: boolean }> = {
     tesla: { base: "#0a2a3a", accent: "#00d4ff", clouds: true },
@@ -36,26 +39,24 @@ function getColors(star: StarConfig) {
 }
 
 export default function OrbitingPlanet({
-  star,
-  orbitRadius,
-  orbitSpeed,
-  orbitOffset,
-  timeScale,
-  planetRadius,
-  onClick,
-  isHovered,
-  onHover,
+  star, orbitRadiusX, orbitRadiusZ, orbitSpeed, orbitOffset,
+  globalTimeRef, timeScrub, planetRadius, showLabel,
+  onClick, isHovered, onHover, planetPositionsRef,
 }: OrbitingPlanetProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const angleRef = useRef(orbitOffset);
+  const worldPos = useRef(new THREE.Vector3());
 
-  useFrame((_, delta) => {
-    angleRef.current += delta * orbitSpeed * timeScale;
+  useFrame(() => {
+    const t = globalTimeRef.current + timeScrub * 0.01;
+    const angle = orbitOffset + t * orbitSpeed;
     if (groupRef.current) {
-      groupRef.current.position.x = Math.cos(angleRef.current) * orbitRadius;
-      groupRef.current.position.z = Math.sin(angleRef.current) * orbitRadius;
-      // Slight Y wobble
-      groupRef.current.position.y = Math.sin(angleRef.current * 2) * 0.3;
+      groupRef.current.position.x = Math.cos(angle) * orbitRadiusX;
+      groupRef.current.position.z = Math.sin(angle) * orbitRadiusZ;
+      groupRef.current.position.y = Math.sin(angle * 2) * 0.3;
+
+      // Report world position
+      groupRef.current.getWorldPosition(worldPos.current);
+      planetPositionsRef.current.set(star.slug, worldPos.current.clone());
     }
   });
 
@@ -63,13 +64,13 @@ export default function OrbitingPlanet({
 
   return (
     <group ref={groupRef}>
-      {/* Invisible click sphere */}
+      {/* Click target */}
       <mesh
         onClick={(e) => { e.stopPropagation(); onClick(); }}
         onPointerOver={(e) => { e.stopPropagation(); onHover(star); document.body.style.cursor = "pointer"; }}
         onPointerOut={() => { onHover(null); document.body.style.cursor = "auto"; }}
       >
-        <sphereGeometry args={[planetRadius * 1.3, 8, 8]} />
+        <sphereGeometry args={[planetRadius * 1.4, 8, 8]} />
         <meshBasicMaterial transparent opacity={0} />
       </mesh>
 
@@ -83,14 +84,16 @@ export default function OrbitingPlanet({
         atmosphereIntensity={isHovered ? 1.8 : 0.8}
       />
 
-      <Html center position={[0, planetRadius + 0.6, 0]} style={{ pointerEvents: "none" }}>
-        <div className="text-center whitespace-nowrap select-none">
-          <p className={`text-foreground text-xs font-bold drop-shadow-lg ${isHovered ? "opacity-100" : "opacity-70"}`}>
-            {star.displayNameFa}
-          </p>
-          <p className="text-muted-foreground text-[9px]">{star.displayNameEn}</p>
-        </div>
-      </Html>
+      {showLabel && (
+        <Html center position={[0, planetRadius + 0.55, 0]} style={{ pointerEvents: "none" }}>
+          <div className="text-center whitespace-nowrap select-none">
+            <p className={`text-foreground text-xs font-bold drop-shadow-lg transition-opacity ${isHovered ? "opacity-100" : "opacity-60"}`}>
+              {star.displayNameFa}
+            </p>
+            <p className="text-muted-foreground text-[9px]">{star.displayNameEn}</p>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
