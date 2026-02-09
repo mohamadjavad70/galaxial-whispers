@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StarConfig } from "@/data/starRegistry";
+import { getStarIntro } from "@/data/contentBlocks";
 import ConstellationRing from "./ConstellationRing";
 import GolGolab from "./GolGolab";
 import ChatOverlay from "./ChatOverlay";
@@ -90,6 +91,7 @@ interface StarWorldTemplateProps {
 export default function StarWorldTemplate({ star }: StarWorldTemplateProps) {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const intro = getStarIntro(star.slug);
 
   return (
     <motion.div
@@ -105,11 +107,14 @@ export default function StarWorldTemplate({ star }: StarWorldTemplateProps) {
           <ArrowRight className="w-4 h-4" />
           کهکشان
         </Button>
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <h1 className="text-xl font-bold text-foreground" style={{ textShadow: `0 0 20px ${star.chakraColor}40` }}>
             {star.displayNameFa}
           </h1>
           <p className="text-xs text-muted-foreground">{star.displayNameEn} — {star.missionEn}</p>
+          {intro.introFa && (
+            <p className="text-sm text-foreground/70 mt-1">{intro.introFa}</p>
+          )}
         </div>
         <div className="w-20" />
       </div>

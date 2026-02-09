@@ -4,10 +4,12 @@ import { motion } from "framer-motion";
 import GalaxyScene from "@/components/GalaxyScene";
 import GolGolab from "@/components/GolGolab";
 import ChatOverlay from "@/components/ChatOverlay";
+import { getContentBlocks } from "@/data/contentBlocks";
 
 export default function Index() {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const blocks = getContentBlocks();
 
   return (
     <motion.div
@@ -27,7 +29,7 @@ export default function Index() {
           className="text-5xl md:text-7xl font-black tracking-wider text-foreground text-glow"
           style={{ fontFamily: "Vazirmatn, sans-serif" }}
         >
-          QMETARAM
+          {blocks.home.titleEn}
         </motion.h1>
         <motion.p
           initial={{ y: -20, opacity: 0 }}
@@ -35,7 +37,7 @@ export default function Index() {
           transition={{ delay: 0.6, duration: 0.8 }}
           className="text-lg md:text-xl text-muted-foreground mt-2"
         >
-          شبکه کهکشانی هفت ستاره
+          {blocks.home.subtitleFa}
         </motion.p>
         <motion.p
           initial={{ opacity: 0 }}
@@ -43,7 +45,7 @@ export default function Index() {
           transition={{ delay: 1, duration: 1 }}
           className="text-sm text-muted-foreground/60 mt-1"
         >
-          Galactic 7-Star Network
+          {blocks.home.subtitleEn}
         </motion.p>
         <motion.p
           initial={{ opacity: 0 }}
@@ -51,7 +53,7 @@ export default function Index() {
           transition={{ delay: 1.5, duration: 1 }}
           className="text-xs text-muted-foreground/40 mt-8"
         >
-          روی یک ستاره کلیک کن ✦
+          {blocks.home.cta}
         </motion.p>
       </div>
 
