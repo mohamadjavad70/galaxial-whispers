@@ -1,18 +1,18 @@
 import { Suspense, useState, useCallback, useRef, useMemo, useEffect } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Stars, OrbitControls } from "@react-three/drei";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { Stars } from "@react-three/drei";
 import * as THREE from "three";
 import { getStarRegistry } from "@/data/starRegistry";
 import type { StarConfig } from "@/data/starRegistry";
 import { getLedger, logAction } from "@/lib/geneticHash";
 import { getPlanetSeeds } from "@/lib/planetSeeds";
 import { useHUDSettings } from "@/hooks/useHUDSettings";
-import type { TelemetryData } from "./solarsystem/SpaceshipControls";
+import FlightCore from "./solarsystem/FlightCore";
+import type { NavMode, FlightTelemetry } from "./solarsystem/FlightCore";
 import QSun from "./solarsystem/QSun";
 import OrbitingPlanet from "./solarsystem/OrbitingPlanet";
 import OrbitRing from "./solarsystem/OrbitRing";
 import UserPlanetOrb from "./solarsystem/UserPlanetOrb";
-import SpaceshipControls from "./solarsystem/SpaceshipControls";
 import SpaceshipHUD from "./solarsystem/SpaceshipHUD";
 import MobileFlightControls from "./solarsystem/MobileFlightControls";
 import QGateModal from "./solarsystem/QGateModal";
@@ -34,51 +34,10 @@ const orbitConfigs = [
 const USER_ORBIT_RX = 24;
 const USER_ORBIT_RZ = 22;
 
-type CameraMode = "freefly" | "focus" | "autopilot";
-
-/* ─── TimeDriver: accumulates global orbit time inside Canvas ─── */
+/* ─── TimeDriver ─── */
 function TimeDriver({ timeScale, timeRef }: { timeScale: number; timeRef: React.MutableRefObject<number> }) {
   useFrame((_, delta) => { timeRef.current += delta * timeScale; });
   return null;
-}
-
-/* ─── FocusCameraController: OrbitControls around a target ─── */
-function FocusCameraController({
-  targetSlug,
-  planetPositionsRef,
-}: {
-  targetSlug: string | null;
-  planetPositionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>;
-}) {
-  const { camera } = useThree();
-  const controlsRef = useRef<any>(null);
-  const initialized = useRef<string | null>(null);
-
-  useFrame(() => {
-    if (!controlsRef.current) return;
-    const pos = targetSlug
-      ? planetPositionsRef.current.get(targetSlug) || new THREE.Vector3()
-      : new THREE.Vector3();
-    controlsRef.current.target.lerp(pos, 0.05);
-    controlsRef.current.update();
-
-    // On first activation or slug change, move camera near target
-    if (initialized.current !== targetSlug) {
-      camera.position.copy(pos).add(new THREE.Vector3(3, 2, 3));
-      initialized.current = targetSlug;
-    }
-  });
-
-  return (
-    <OrbitControls
-      ref={controlsRef}
-      enablePan={false}
-      maxDistance={10}
-      minDistance={2}
-      autoRotate
-      autoRotateSpeed={0.5}
-    />
-  );
 }
 
 /* ─── Main Scene ─── */
@@ -94,40 +53,54 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
   // Shared refs
   const keysRef = useRef<Set<string>>(new Set());
   const globalTimeRef = useRef(0);
-  const telemetryRef = useRef<TelemetryData>({ speed: 0, position: [0, 12, 25], altitude: 12 });
+  const defaultTelemetry: FlightTelemetry = {
+    speed: 0, position: [0, 12, 25], altitude: 12,
+    navMode: "FREE", autopilotTarget: null, autopilotDist: 0, autopilotETA: 0,
+  };
+  const telemetryRef = useRef<FlightTelemetry>(defaultTelemetry);
   const planetPositionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
 
+  // Planet radii map for safety rails
+  const planetRadii = useMemo(() => {
+    const m = new Map<string, number>();
+    stars.forEach((s, i) => {
+      const cfg = orbitConfigs[i];
+      if (cfg) m.set(s.slug, cfg.pRadius);
+    });
+    return m;
+  }, [stars]);
+
   // State
-  const [cameraMode, setCameraMode] = useState<CameraMode>("freefly");
-  const [focusedSlug, setFocusedSlug] = useState<string | null>(null);
+  const [navMode, setNavMode] = useState<NavMode>("FREE");
+  const [focusSlug, setFocusSlug] = useState<string | null>(null);
   const [autopilotSlug, setAutopilotSlug] = useState<string | null>(null);
   const [hovered, setHovered] = useState<StarConfig | null>(null);
   const [warpState, setWarpState] = useState({ active: false, color: "#00d4ff", path: "" });
   const [timeScrub, setTimeScrub] = useState(0);
-  const [telemetrySnapshot, setTelemetrySnapshot] = useState<TelemetryData>(telemetryRef.current);
+  const [telemetrySnapshot, setTelemetrySnapshot] = useState<FlightTelemetry>(defaultTelemetry);
   const [seedPanel, setSeedPanel] = useState(false);
   const [selectedSeed, setSelectedSeed] = useState<PlanetSeed | null>(null);
   const [qGate, setQGate] = useState<{ open: boolean; purpose: "q-core" | "planet-seed"; callback: () => void }>({ open: false, purpose: "q-core", callback: () => {} });
   const [gateCleared, setGateCleared] = useState(false);
   const [seedsVersion, setSeedsVersion] = useState(0);
 
-  const focusedStar = focusedSlug ? stars.find((s) => s.slug === focusedSlug) || null : null;
+  const focusedStar = focusSlug ? stars.find((s) => s.slug === focusSlug) || null : null;
   const autopilotName = autopilotSlug ? stars.find((s) => s.slug === autopilotSlug)?.displayNameFa || null : null;
   const effectiveTimeScale = settings.paused ? 0 : settings.timeSpeed;
   const seeds = useMemo(() => getPlanetSeeds(), [seedsVersion]);
 
-  // Telemetry polling for DOM updates
+  // Telemetry polling
   useEffect(() => {
-    const id = setInterval(() => setTelemetrySnapshot({ ...telemetryRef.current }), 250);
+    const id = setInterval(() => setTelemetrySnapshot({ ...telemetryRef.current }), 200);
     return () => clearInterval(id);
   }, []);
 
-  // Handlers
+  /* ─── Handlers ─── */
   const handlePlanetClick = useCallback((star: StarConfig) => {
-    setCameraMode("focus");
-    setFocusedSlug(star.slug);
+    setNavMode("FOCUS");
+    setFocusSlug(star.slug);
     setAutopilotSlug(null);
-    logAction("focus_planet", star.slug);
+    logAction("mode_focus", star.slug);
     emitGolGolabEvent("first_planet_focus");
   }, []);
 
@@ -153,30 +126,29 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
     );
     if (target && planetPositionsRef.current.has(target.slug)) {
       setAutopilotSlug(target.slug);
-      setCameraMode("autopilot");
-      logAction("autopilot_started", target.slug);
+      setNavMode("AUTOPILOT");
+      logAction("autopilot_target_set", target.slug);
       emitGolGolabEvent("first_autopilot");
     }
   }, [stars]);
 
-  const handleAutopilotArrived = useCallback(() => {
-    if (autopilotSlug) {
-      setCameraMode("focus");
-      setFocusedSlug(autopilotSlug);
-      logAction("autopilot_completed", autopilotSlug);
-    }
+  const handleAutopilotDock = useCallback((slug: string) => {
+    setNavMode("FOCUS");
+    setFocusSlug(slug);
     setAutopilotSlug(null);
-  }, [autopilotSlug]);
+    logAction("autopilot_dock", slug);
+  }, []);
 
   const handleCancelAutopilot = useCallback(() => {
     setAutopilotSlug(null);
-    setCameraMode("freefly");
-    logAction("autopilot_canceled", "system");
+    setNavMode("FREE");
+    logAction("autopilot_cancel", "system");
   }, []);
 
   const handleReleaseFocus = useCallback(() => {
-    setFocusedSlug(null);
-    setCameraMode("freefly");
+    setFocusSlug(null);
+    setNavMode("FREE");
+    logAction("mode_free", "system");
   }, []);
 
   const handleEnterWorld = useCallback(() => {
@@ -187,22 +159,27 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
   }, [focusedStar]);
 
   const handleToggleExplorer = useCallback(() => {
-    if (cameraMode === "freefly") {
-      setCameraMode("focus");
-      setFocusedSlug(null);
+    if (navMode === "FREE") {
+      setNavMode("FOCUS");
+      setFocusSlug(null);
     } else {
-      setCameraMode("freefly");
-      setFocusedSlug(null);
+      setNavMode("FREE");
+      setFocusSlug(null);
       setAutopilotSlug(null);
+      logAction("mode_free", "system");
     }
-  }, [cameraMode]);
+  }, [navMode]);
 
   const handleQuickPlanet = useCallback((slug: string) => {
     if (planetPositionsRef.current.has(slug)) {
       setAutopilotSlug(slug);
-      setCameraMode("autopilot");
-      logAction("nav_prompt_submitted", slug);
+      setNavMode("AUTOPILOT");
+      logAction("autopilot_target_set", slug);
     }
+  }, []);
+
+  const handleBrake = useCallback(() => {
+    logAction("flight_brake", "system");
   }, []);
 
   const handleGatePass = useCallback(() => {
@@ -228,24 +205,20 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
 
           <TimeDriver timeScale={effectiveTimeScale} timeRef={globalTimeRef} />
 
-          {/* Camera controllers — only one active at a time */}
-          {(cameraMode === "freefly" || cameraMode === "autopilot") && (
-            <SpaceshipControls
-              enabled
-              mouseLook={settings.mouseLook}
-              keysRef={keysRef}
-              telemetryRef={telemetryRef}
-              planetPositionsRef={planetPositionsRef}
-              autopilotSlug={cameraMode === "autopilot" ? autopilotSlug : null}
-              onAutopilotArrived={handleAutopilotArrived}
-            />
-          )}
-          {cameraMode === "focus" && (
-            <FocusCameraController
-              targetSlug={focusedSlug}
-              planetPositionsRef={planetPositionsRef}
-            />
-          )}
+          {/* Unified FlightCore — handles all 3 modes */}
+          <FlightCore
+            navMode={navMode}
+            mouseLook={settings.mouseLook}
+            inertia={settings.inertia}
+            keysRef={keysRef}
+            telemetryRef={telemetryRef}
+            planetPositionsRef={planetPositionsRef}
+            planetRadii={planetRadii}
+            focusSlug={focusSlug}
+            autopilotSlug={autopilotSlug}
+            onAutopilotDock={handleAutopilotDock}
+            onBrake={handleBrake}
+          />
 
           {/* Q Sun */}
           <QSun ledgerCount={getLedger().length} onClick={handleSunClick} />
@@ -308,7 +281,7 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
         onUpdate={updateSettings}
         telemetry={telemetrySnapshot}
         stars={stars}
-        cameraMode={cameraMode}
+        navMode={navMode}
         autopilotName={autopilotName}
         focusedStar={focusedStar}
         timeScrub={timeScrub}
@@ -319,13 +292,14 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
         onQuickPlanet={handleQuickPlanet}
         onEnterWorld={handleEnterWorld}
         onToggleExplorer={handleToggleExplorer}
+        onBrake={handleBrake}
       />
 
       {/* Mobile flight controls */}
-      <MobileFlightControls keysRef={keysRef} visible={cameraMode === "freefly"} />
+      <MobileFlightControls keysRef={keysRef} visible={navMode === "FREE"} />
 
       {/* Hover tooltip */}
-      {hovered && !warpState.active && cameraMode !== "focus" && (
+      {hovered && !warpState.active && navMode !== "FOCUS" && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-card/80 backdrop-blur-md rounded-xl px-5 py-3 text-center border border-border/20 pointer-events-none z-10">
           <p className="text-foreground font-bold text-base">{hovered.displayNameFa}</p>
           <p className="text-muted-foreground text-sm">{hovered.missionFa}</p>
