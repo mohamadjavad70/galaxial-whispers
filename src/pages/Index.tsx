@@ -1,15 +1,20 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import SolarSystemScene from "@/components/SolarSystemScene";
 import GolGolab from "@/components/GolGolab";
 import ChatOverlay from "@/components/ChatOverlay";
+import { emitGolGolabEvent } from "@/components/ChatOverlay";
 import { getContentBlocks } from "@/data/contentBlocks";
 
 export default function Index() {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
   const blocks = getContentBlocks();
+
+  useEffect(() => {
+    emitGolGolabEvent("first_galaxy_entry");
+  }, []);
 
   const handleNavigate = useCallback((path: string) => {
     navigate(path);

@@ -19,6 +19,7 @@ import QGateModal from "./solarsystem/QGateModal";
 import PlanetSeedPanel from "./solarsystem/PlanetSeedPanel";
 import WarpOverlay from "./galaxy/WarpOverlay";
 import type { PlanetSeed } from "./solarsystem/UserPlanetOrb";
+import { emitGolGolabEvent } from "./ChatOverlay";
 
 /* ─── Elliptical orbit configs for 7 planets ─── */
 const orbitConfigs = [
@@ -126,10 +127,12 @@ export default function SolarSystemScene({ onNavigate }: SolarSystemSceneProps) 
     setFocusedSlug(star.slug);
     setAutopilotSlug(null);
     logAction("focus_planet", star.slug);
+    emitGolGolabEvent("first_planet_focus");
   }, []);
 
   const handleSunClick = useCallback(() => {
     setWarpState({ active: true, color: "#ffd700", path: "/q" });
+    emitGolGolabEvent("enter_qcore");
   }, []);
 
   const handleWarpComplete = useCallback(() => {
@@ -147,6 +150,7 @@ export default function SolarSystemScene({ onNavigate }: SolarSystemSceneProps) 
       setAutopilotSlug(target.slug);
       setCameraMode("autopilot");
       logAction("autopilot_started", target.slug);
+      emitGolGolabEvent("first_autopilot");
     }
   }, [stars]);
 
