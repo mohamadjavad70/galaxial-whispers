@@ -4,11 +4,14 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, Shield, Save, RotateCcw, Activity } from "lucide-react";
+import { ArrowRight, Shield, Save, RotateCcw, Activity, FileText } from "lucide-react";
 import { getStarRegistry, saveStarRegistry, defaultStarRegistry } from "@/data/starRegistry";
 import type { StarConfig } from "@/data/starRegistry";
+import { getContentBlocks, saveContentBlocks, defaultContentBlocks } from "@/data/contentBlocks";
+import type { ContentBlocks } from "@/data/contentBlocks";
 import { getLedger } from "@/lib/geneticHash";
 import type { LedgerEntry } from "@/lib/geneticHash";
 
@@ -19,12 +22,14 @@ export default function CommandCenter() {
   const [pass, setPass] = useState("");
   const [authed, setAuthed] = useState(false);
   const [registry, setRegistry] = useState<StarConfig[]>([]);
+  const [content, setContent] = useState<ContentBlocks>(defaultContentBlocks);
   const [logs, setLogs] = useState<LedgerEntry[]>([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (authed) {
       setRegistry(getStarRegistry());
+      setContent(getContentBlocks());
       setLogs(getLedger());
     }
   }, [authed]);
@@ -67,14 +72,36 @@ export default function CommandCenter() {
     setSaved(false);
   };
 
+  const updateHomeContent = (field: keyof ContentBlocks["home"], value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      home: { ...prev.home, [field]: value },
+    }));
+    setSaved(false);
+  };
+
+  const updateStarContent = (slug: string, field: "introFa" | "introEn", value: string) => {
+    setContent((prev) => ({
+      ...prev,
+      stars: {
+        ...prev.stars,
+        [slug]: { ...prev.stars[slug], [field]: value },
+      },
+    }));
+    setSaved(false);
+  };
+
   const publish = () => {
     saveStarRegistry(registry);
+    saveContentBlocks(content);
     setSaved(true);
   };
 
   const rollback = () => {
     setRegistry(defaultStarRegistry);
+    setContent(defaultContentBlocks);
     saveStarRegistry(defaultStarRegistry);
+    saveContentBlocks(defaultContentBlocks);
     setSaved(true);
   };
 
@@ -107,9 +134,11 @@ export default function CommandCenter() {
         <Tabs defaultValue="registry" dir="rtl">
           <TabsList className="bg-secondary">
             <TabsTrigger value="registry">رجیستری ستارگان</TabsTrigger>
+            <TabsTrigger value="content">محتوا</TabsTrigger>
             <TabsTrigger value="logs">لاگ فعالیت</TabsTrigger>
           </TabsList>
 
+          {/* Star Registry Tab */}
           <TabsContent value="registry" className="space-y-3 mt-4">
             {registry.map((star, i) => (
               <Card key={star.slug} className="bg-card border-border">
@@ -160,6 +189,96 @@ export default function CommandCenter() {
             ))}
           </TabsContent>
 
+          {/* Content Blocks Tab */}
+          <TabsContent value="content" className="space-y-4 mt-4">
+            {/* Home Page Content */}
+            <Card className="bg-card border-border">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-foreground text-sm flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  صفحه اصلی — Home
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">عنوان انگلیسی</label>
+                  <Input
+                    value={content.home.titleEn}
+                    onChange={(e) => updateHomeContent("titleEn", e.target.value)}
+                    className="bg-input text-foreground text-sm"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">زیرعنوان فارسی</label>
+                  <Input
+                    value={content.home.subtitleFa}
+                    onChange={(e) => updateHomeContent("subtitleFa", e.target.value)}
+                    className="bg-input text-foreground text-sm"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">زیرعنوان انگلیسی</label>
+                  <Input
+                    value={content.home.subtitleEn}
+                    onChange={(e) => updateHomeContent("subtitleEn", e.target.value)}
+                    className="bg-input text-foreground text-sm"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">متن دعوت (CTA)</label>
+                  <Input
+                    value={content.home.cta}
+                    onChange={(e) => updateHomeContent("cta", e.target.value)}
+                    className="bg-input text-foreground text-sm"
+                    dir="rtl"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Star Intro Content */}
+            {Object.entries(content.stars).map(([slug, intro]) => {
+              const star = registry.find((s) => s.slug === slug);
+              return (
+                <Card key={slug} className="bg-card border-border">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-foreground text-sm flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-full inline-block"
+                        style={{ backgroundColor: star?.chakraColor || "#888" }}
+                      />
+                      {star?.displayNameFa || slug} — {star?.displayNameEn || slug}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">معرفی فارسی</label>
+                      <Textarea
+                        value={intro.introFa}
+                        onChange={(e) => updateStarContent(slug, "introFa", e.target.value)}
+                        className="bg-input text-foreground text-sm min-h-[60px]"
+                        dir="rtl"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">معرفی انگلیسی</label>
+                      <Textarea
+                        value={intro.introEn}
+                        onChange={(e) => updateStarContent(slug, "introEn", e.target.value)}
+                        className="bg-input text-foreground text-sm min-h-[60px]"
+                        dir="ltr"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </TabsContent>
+
+          {/* Logs Tab */}
           <TabsContent value="logs" className="mt-4">
             <Card className="bg-card border-border">
               <CardHeader>
