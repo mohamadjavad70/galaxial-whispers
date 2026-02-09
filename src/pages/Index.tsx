@@ -1,15 +1,34 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import GalaxyScene from "@/components/GalaxyScene";
 import GolGolab from "@/components/GolGolab";
 import ChatOverlay from "@/components/ChatOverlay";
+import WarpOverlay from "@/components/galaxy/WarpOverlay";
 import { getContentBlocks } from "@/data/contentBlocks";
 
 export default function Index() {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
+  const [warpState, setWarpState] = useState<{ active: boolean; color: string; slug: string }>({
+    active: false,
+    color: "#00d4ff",
+    slug: "",
+  });
   const blocks = getContentBlocks();
+
+  // Scroll-based parallax for DOM overlay
+  const { scrollYProgress } = useScroll();
+  const titleY = useTransform(scrollYProgress, [0, 1], [0, -40]);
+  const subtitleY = useTransform(scrollYProgress, [0, 1], [0, -20]);
+
+  const handleStarClick = useCallback((slug: string, chakraColor: string) => {
+    setWarpState({ active: true, color: chakraColor, slug });
+  }, []);
+
+  const handleWarpComplete = useCallback(() => {
+    navigate(`/star/${warpState.slug}`);
+  }, [navigate, warpState.slug]);
 
   return (
     <motion.div
@@ -18,16 +37,16 @@ export default function Index() {
       exit={{ opacity: 0 }}
       className="relative w-full h-screen overflow-hidden bg-background"
     >
-      <GalaxyScene onStarClick={(slug) => navigate(`/star/${slug}`)} />
+      <GalaxyScene onStarClick={handleStarClick} />
 
-      {/* Title overlay */}
+      {/* Title overlay with pointer-based parallax */}
       <div className="absolute inset-0 pointer-events-none flex flex-col items-center pt-12 z-10">
         <motion.h1
           initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.8 }}
+          style={{ y: titleY, fontFamily: "Vazirmatn, sans-serif" }}
           className="text-5xl md:text-7xl font-black tracking-wider text-foreground text-glow"
-          style={{ fontFamily: "Vazirmatn, sans-serif" }}
         >
           {blocks.home.titleEn}
         </motion.h1>
@@ -35,6 +54,7 @@ export default function Index() {
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.8 }}
+          style={{ y: subtitleY }}
           className="text-lg md:text-xl text-muted-foreground mt-2"
         >
           {blocks.home.subtitleFa}
@@ -59,6 +79,13 @@ export default function Index() {
 
       <GolGolab onClick={() => setChatOpen(true)} />
       <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
+
+      {/* Cinematic warp overlay */}
+      <WarpOverlay
+        active={warpState.active}
+        chakraColor={warpState.color}
+        onComplete={handleWarpComplete}
+      />
     </motion.div>
   );
 }
