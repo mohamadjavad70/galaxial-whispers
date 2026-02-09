@@ -84,9 +84,10 @@ function FocusCameraController({
 /* ─── Main Scene ─── */
 interface SolarSystemSceneProps {
   onNavigate: (path: string, chakraColor?: string) => void;
+  onSunClick?: () => void;
 }
 
-export default function SolarSystemScene({ onNavigate }: SolarSystemSceneProps) {
+export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystemSceneProps) {
   const stars = useMemo(() => getStarRegistry(), []);
   const { settings, update: updateSettings } = useHUDSettings();
 
@@ -131,9 +132,13 @@ export default function SolarSystemScene({ onNavigate }: SolarSystemSceneProps) 
   }, []);
 
   const handleSunClick = useCallback(() => {
-    setWarpState({ active: true, color: "#ffd700", path: "/q" });
+    if (onSunClick) {
+      onSunClick();
+    } else {
+      setWarpState({ active: true, color: "#ffd700", path: "/q" });
+    }
     emitGolGolabEvent("enter_qcore");
-  }, []);
+  }, [onSunClick]);
 
   const handleWarpComplete = useCallback(() => {
     onNavigate(warpState.path, warpState.color);

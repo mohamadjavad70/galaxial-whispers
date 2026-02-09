@@ -14,13 +14,14 @@ import { getContentBlocks, saveContentBlocks, defaultContentBlocks } from "@/dat
 import type { ContentBlocks } from "@/data/contentBlocks";
 import { getLedger } from "@/lib/geneticHash";
 import type { LedgerEntry } from "@/lib/geneticHash";
+import { isOwnerUnlocked, OWNER_PASSPHRASE, unlockOwner } from "@/lib/ownerGate";
 
-const DEMO_PASS = "qmetaram";
+const DEMO_PASS = OWNER_PASSPHRASE;
 
 export default function CommandCenter() {
   const navigate = useNavigate();
   const [pass, setPass] = useState("");
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(isOwnerUnlocked);
   const [registry, setRegistry] = useState<StarConfig[]>([]);
   const [content, setContent] = useState<ContentBlocks>(defaultContentBlocks);
   const [logs, setLogs] = useState<LedgerEntry[]>([]);
@@ -55,7 +56,7 @@ export default function CommandCenter() {
               className="bg-input text-foreground"
               dir="ltr"
             />
-            <Button className="w-full" onClick={() => pass === DEMO_PASS && setAuthed(true)}>ورود</Button>
+            <Button className="w-full" onClick={() => { if (pass === DEMO_PASS) { unlockOwner(); setAuthed(true); } }}>ورود</Button>
             <p className="text-xs text-muted-foreground text-center">🔓 دمو — رمز: qmetaram</p>
           </CardContent>
         </Card>
