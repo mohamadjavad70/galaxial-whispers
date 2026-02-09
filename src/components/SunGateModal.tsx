@@ -67,8 +67,8 @@ export default function SunGateModal({ open, onClose, onNavigate }: SunGateModal
             onClick={(e) => e.stopPropagation()}
           >
             <Shield className="w-8 h-8 mx-auto text-primary" />
-            <h2 className="text-foreground font-bold text-base">Q Core — دسترسی فرماندهی</h2>
-            <p className="text-muted-foreground text-xs">Command Access</p>
+            <h2 className="text-foreground font-bold text-base">Q Core — فرماندهی خصوصی</h2>
+            <p className="text-muted-foreground text-xs">Private Command Gateway</p>
 
             {/* Public options */}
             <div className="space-y-2">
@@ -80,10 +80,10 @@ export default function SunGateModal({ open, onClose, onNavigate }: SunGateModal
               </Button>
             </div>
 
-            {/* Owner section */}
+            {/* Owner section — no hints */}
             <div className="border-t border-border/20 pt-3 space-y-2">
-              <p className="text-muted-foreground text-[10px] flex items-center justify-center gap-1">
-                <Lock className="w-3 h-3" /> فرماندهی خصوصی
+              <p className="text-muted-foreground/50 text-[10px] flex items-center justify-center gap-1">
+                <Lock className="w-3 h-3" /> دسترسی فرمانده
               </p>
               {ownerUnlocked ? (
                 <Button size="sm" className="w-full text-xs" onClick={handleEnterCommand}>
@@ -96,19 +96,18 @@ export default function SunGateModal({ open, onClose, onNavigate }: SunGateModal
                     value={pass}
                     onChange={(e) => setPass(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleEnterCommand()}
-                    placeholder="رمز ورود..."
+                    placeholder="Sign in..."
                     className="text-xs h-8 bg-input/40 border-border/20 text-foreground text-center"
                     dir="ltr"
                   />
                   {error && (
-                    <p className="text-destructive text-[10px]">رمز اشتباه است!</p>
+                    <p className="text-destructive text-[10px]">دسترسی رد شد</p>
                   )}
                   <Button size="sm" className="w-full text-xs" onClick={handleEnterCommand}>
                     ورود به فرماندهی
                   </Button>
                 </>
               )}
-              <p className="text-muted-foreground/40 text-[8px]">Demo gate (client-side)</p>
             </div>
 
             <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={onClose}>

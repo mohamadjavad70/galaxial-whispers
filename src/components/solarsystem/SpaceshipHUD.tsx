@@ -193,8 +193,10 @@ export default function SpaceshipHUD({
             <button
               onClick={() => navigate("/command-center")}
               className={`${G} px-2 py-1 text-[8px] text-primary hover:text-foreground transition-colors flex items-center gap-1`}
+              title="فرماندهی"
             >
               <Terminal className="w-2.5 h-2.5" />
+              <span className="hidden md:inline">فرماندهی</span>
             </button>
           ) : (
             <span className={`${G} px-2 py-1 text-[8px] text-muted-foreground/25`} title="فقط برای فرمانده">
