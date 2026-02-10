@@ -4,15 +4,16 @@
 
 import type { PlanetSeed, PlanetRecord } from "@/components/solarsystem/UserPlanetOrb";
 
+import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+
 const STORAGE_KEY = "qmetaram-planet-seeds";
 
 export function getPlanetSeeds(): PlanetSeed[] {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-  catch { return []; }
+  return safeGetJSON<PlanetSeed[]>(STORAGE_KEY, []);
 }
 
 export function savePlanetSeeds(seeds: PlanetSeed[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seeds));
+  safeSetJSON(STORAGE_KEY, seeds);
 }
 
 export function addPlanetSeed(seed: Omit<PlanetSeed, "id" | "supports" | "forks" | "createdAt" | "records">): PlanetSeed {

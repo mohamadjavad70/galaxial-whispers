@@ -28,15 +28,16 @@ export async function createHash(action: string, slug: string): Promise<string> 
   }
 }
 
+import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+
 export function getLedger(): LedgerEntry[] {
-  try { return JSON.parse(localStorage.getItem("qmetaram-ledger") || "[]"); }
-  catch { return []; }
+  return safeGetJSON<LedgerEntry[]>("qmetaram-ledger", []);
 }
 
 export function addToLedger(entry: LedgerEntry) {
   const ledger = getLedger();
   ledger.push(entry);
-  localStorage.setItem("qmetaram-ledger", JSON.stringify(ledger));
+  safeSetJSON("qmetaram-ledger", ledger);
 }
 
 export function getLatestHash(): string {
