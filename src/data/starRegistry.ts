@@ -107,18 +107,16 @@ export const defaultStarRegistry: StarConfig[] = [
   },
 ];
 
+import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+
 /** Get star registry, checking localStorage overrides from Command Center */
 export function getStarRegistry(): StarConfig[] {
-  try {
-    const stored = localStorage.getItem("qmetaram-stars");
-    if (stored) return JSON.parse(stored);
-  } catch { /* fallback */ }
-  return defaultStarRegistry;
+  return safeGetJSON("qmetaram-stars", defaultStarRegistry);
 }
 
 /** Save modified registry (from Command Center) */
 export function saveStarRegistry(registry: StarConfig[]) {
-  localStorage.setItem("qmetaram-stars", JSON.stringify(registry));
+  safeSetJSON("qmetaram-stars", registry);
 }
 
 /** Get a single star by slug */

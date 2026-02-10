@@ -26,24 +26,22 @@ const defaults: HUDSettings = {
   inertia: 0.4,
 };
 
+import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+
 function load(): HUDSettings {
-  try {
-    const s = localStorage.getItem(STORAGE_KEY);
-    if (!s) return defaults;
-    const parsed = JSON.parse(s);
-    // Migrate old keys
-    if ("hudVisible" in parsed) {
-      parsed.hudMode = parsed.hudVisible ? (parsed.hudMode || "COMPACT") : "CINEMATIC";
-      delete parsed.hudVisible;
-    }
-    if ("feedMuted" in parsed) {
-      parsed.audioMuted = parsed.feedMuted;
-      delete parsed.feedMuted;
-    }
-    return { ...defaults, ...parsed };
-  } catch {
-    return defaults;
+  const parsed = safeGetJSON<Record<string, unknown>>(STORAGE_KEY, {});
+  if (Object.keys(parsed).length === 0) return defaults;
+  // Migrate old keys
+  const p = { ...parsed } as any;
+  if ("hudVisible" in p) {
+    p.hudMode = p.hudVisible ? (p.hudMode || "COMPACT") : "CINEMATIC";
+    delete p.hudVisible;
   }
+  if ("feedMuted" in p) {
+    p.audioMuted = p.feedMuted;
+    delete p.feedMuted;
+  }
+  return { ...defaults, ...p };
 }
 
 export function useHUDSettings() {
@@ -52,7 +50,7 @@ export function useHUDSettings() {
   const update = useCallback((patch: Partial<HUDSettings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      safeSetJSON(STORAGE_KEY, next);
       return next;
     });
   }, []);

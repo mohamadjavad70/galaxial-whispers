@@ -58,18 +58,16 @@ export const defaultContentBlocks: ContentBlocks = {
   },
 };
 
+import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+
 const STORAGE_KEY = "qmetaram-content";
 
 export function getContentBlocks(): ContentBlocks {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch { /* fallback */ }
-  return defaultContentBlocks;
+  return safeGetJSON(STORAGE_KEY, defaultContentBlocks);
 }
 
 export function saveContentBlocks(blocks: ContentBlocks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(blocks));
+  safeSetJSON(STORAGE_KEY, blocks);
 }
 
 export function getStarIntro(slug: string): { introFa: string; introEn: string } {
