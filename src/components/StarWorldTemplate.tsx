@@ -7,7 +7,7 @@ import type { StarConfig } from "@/data/starRegistry";
 import { getStarIntro } from "@/data/contentBlocks";
 import ConstellationRing from "./ConstellationRing";
 import GolGolab from "./GolGolab";
-import ChatOverlay from "./ChatOverlay";
+import SunCoreChat from "./SunCoreChat";
 import { MatrixRain } from "./stars/MatrixTool";
 
 const TeslaTool = lazy(() => import("./stars/TeslaTool"));
@@ -134,7 +134,7 @@ export default function StarWorldTemplate({ star }: StarWorldTemplateProps) {
 
       <ConstellationRing currentSlug={star.slug} />
       <GolGolab onClick={() => setChatOpen(true)} />
-      <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} starSlug={star.slug} />
+      <SunCoreChat open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>
   );
 }

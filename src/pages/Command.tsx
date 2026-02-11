@@ -8,7 +8,7 @@ import { ArrowRight, Activity, Radio, Trophy, Globe2 } from "lucide-react";
 import { getStarRegistry } from "@/data/starRegistry";
 import { getLedger } from "@/lib/geneticHash";
 import GolGolab from "@/components/GolGolab";
-import ChatOverlay from "@/components/ChatOverlay";
+import SunCoreChat from "@/components/SunCoreChat";
 import LanguagePicker from "@/components/LanguagePicker";
 
 export default function Command() {
@@ -164,7 +164,7 @@ export default function Command() {
       </div>
 
       <GolGolab onClick={() => setChatOpen(true)} />
-      <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
+      <SunCoreChat open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>
   );
 }

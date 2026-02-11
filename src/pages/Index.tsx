@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import SolarSystemScene from "@/components/SolarSystemScene";
 import BiometricGate from "@/components/BiometricGate";
 import GolGolab from "@/components/GolGolab";
-import ChatOverlay from "@/components/ChatOverlay";
+import SunCoreChat from "@/components/SunCoreChat";
 import { emitGolGolabEvent } from "@/components/ChatOverlay";
 import { getContentBlocks } from "@/data/contentBlocks";
 
@@ -66,7 +66,7 @@ export default function Index() {
 
       <BiometricGate open={sunGateOpen} onClose={() => setSunGateOpen(false)} onNavigate={handleNavigate} />
       <GolGolab onClick={() => setChatOpen(true)} />
-      <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
+      <SunCoreChat open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>
   );
 }
