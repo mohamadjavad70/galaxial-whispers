@@ -9,6 +9,7 @@ import { Plus, Heart, GitFork, BookOpen, X } from "lucide-react";
 import type { PlanetSeed } from "@/components/solarsystem/UserPlanetOrb";
 import { addPlanetSeed, supportSeed, forkSeed, addRecord, getPlanetSeeds } from "@/lib/planetSeeds";
 import { logAction } from "@/lib/geneticHash";
+import { PlanetSeedInputSchema, PlanetRecordInputSchema } from "@/lib/validation";
 
 /**
  * PlanetSeedPanel — UI to create, view, support, and fork planet seeds.
@@ -43,9 +44,10 @@ export default function PlanetSeedPanel({
 
   const handleCreate = async () => {
     if (!gateCleared) { onRequestGate(); return; }
-    if (!name.trim()) return;
-    addPlanetSeed({ name: name.trim(), prompt: prompt.trim(), category, chakraColor: color });
-    await logAction("create-planet", name.trim());
+    const parsed = PlanetSeedInputSchema.safeParse({ name, prompt, category, chakraColor: color });
+    if (!parsed.success) return;
+    addPlanetSeed({ name: parsed.data.name, prompt: parsed.data.prompt, category: parsed.data.category, chakraColor: parsed.data.chakraColor });
+    await logAction("create-planet", parsed.data.name);
     setName(""); setPrompt("");
     setMode("list");
     onRefresh();
@@ -65,8 +67,9 @@ export default function PlanetSeedPanel({
   };
 
   const handlePublishRecord = async (seed: PlanetSeed) => {
-    if (!recTitle.trim()) return;
-    addRecord(seed.id, { title: recTitle.trim(), description: recDesc.trim(), promptSnippet: recPrompt.trim() });
+    const parsed = PlanetRecordInputSchema.safeParse({ title: recTitle, description: recDesc, promptSnippet: recPrompt });
+    if (!parsed.success) return;
+    addRecord(seed.id, { title: parsed.data.title, description: parsed.data.description, promptSnippet: parsed.data.promptSnippet });
     await logAction("publish-record", seed.name);
     setRecTitle(""); setRecDesc(""); setRecPrompt("");
     setMode("detail");
