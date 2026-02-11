@@ -22,6 +22,7 @@ import { getLedger, logAction } from "@/lib/geneticHash";
 import type { LedgerEntry } from "@/lib/geneticHash";
 import { isOwnerUnlocked, unlockOwner, verifyPassphrase } from "@/lib/ownerGate";
 import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
+import { ForgeSpecInputSchema } from "@/lib/validation";
 import LanguagePicker from "@/components/LanguagePicker";
 
 /* ── Glass card helper ── */
@@ -201,20 +202,24 @@ export default function CommandCenter() {
   };
 
   const addForgeSpec = () => {
-    if (!forgeName.trim()) return;
+    const parsed = ForgeSpecInputSchema.safeParse({
+      name: forgeName, ring: forgeRing, chakraColor: forgeColor,
+      provider: forgeProvider, prompt: forgePrompt,
+    });
+    if (!parsed.success) return;
     const spec: PlanetSpec = {
       id: `forge-${Date.now()}`,
-      name: forgeName,
-      ring: forgeRing,
-      chakraColor: forgeColor,
-      provider: forgeProvider,
-      prompt: forgePrompt,
+      name: parsed.data.name!,
+      ring: parsed.data.ring!,
+      chakraColor: parsed.data.chakraColor!,
+      provider: parsed.data.provider!,
+      prompt: parsed.data.prompt!,
       createdAt: Date.now(),
     };
     const next = [...forgeSpecs, spec];
     setForgeSpecs(next);
     saveForgeSpecs(next);
-    logAction("forge_planet", forgeName);
+    logAction("forge_planet", parsed.data.name);
     setForgeName("");
     setForgePrompt("");
   };

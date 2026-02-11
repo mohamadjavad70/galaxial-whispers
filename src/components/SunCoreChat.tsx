@@ -15,6 +15,7 @@ import {
   type AppEntry,
 } from "@/lib/sunCorePrompt";
 import { logAction } from "@/lib/geneticHash";
+import { ChatMessageSchema } from "@/lib/validation";
 
 interface ChatMessage {
   id: number;
@@ -52,8 +53,10 @@ export default function SunCoreChat({ open, onOpenChange }: SunCoreChatProps) {
   }, [messages, thinking]);
 
   const send = useCallback(() => {
-    const trimmed = input.trim();
-    if (!trimmed || thinking) return;
+    if (thinking) return;
+    const parsed = ChatMessageSchema.safeParse(input);
+    if (!parsed.success) return;
+    const trimmed = parsed.data;
 
     const userMsg: ChatMessage = {
       id: ++idCounter,

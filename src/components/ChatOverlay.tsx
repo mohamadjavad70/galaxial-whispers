@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 import TypingMessage from "@/components/TypingMessage";
+import { ChatMessageSchema } from "@/lib/validation";
 
 interface Message {
   role: "user" | "golab";
@@ -86,8 +87,9 @@ export default function ChatOverlay({ open, onOpenChange, starSlug }: ChatOverla
   }, [pushBotMessage]);
 
   const send = () => {
-    if (!input.trim()) return;
-    const userMsg = mkMsg("user", input);
+    const parsed = ChatMessageSchema.safeParse(input);
+    if (!parsed.success) return;
+    const userMsg = mkMsg("user", parsed.data);
     const reply = mkMsg("golab", replies[Math.floor(Math.random() * replies.length)]);
     setNewestId(reply.id);
     setMessages((prev) => [...prev, userMsg, reply]);
