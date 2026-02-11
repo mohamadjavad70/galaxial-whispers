@@ -20,7 +20,7 @@ import { getConnectors, saveConnectors, defaultConnectors, type Connector, type 
 import { getEconomy, saveEconomy, defaultEconomy, type EconomyState, type StarCoin } from "@/data/economy";
 import { getLedger, logAction } from "@/lib/geneticHash";
 import type { LedgerEntry } from "@/lib/geneticHash";
-import { isOwnerUnlocked, unlockOwner, OWNER_PASSPHRASE } from "@/lib/ownerGate";
+import { isOwnerUnlocked, unlockOwner, verifyPassphrase } from "@/lib/ownerGate";
 import { safeGetJSON, safeSetJSON } from "@/lib/safeParse";
 import LanguagePicker from "@/components/LanguagePicker";
 
@@ -134,18 +134,19 @@ export default function CommandCenter() {
               type="password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && pass === OWNER_PASSPHRASE) {
-                  unlockOwner();
-                  setAuthed(true);
+              onKeyDown={async (e) => {
+                if (e.key === "Enter") {
+                  const valid = await verifyPassphrase(pass);
+                  if (valid) { unlockOwner(); setAuthed(true); }
                 }
               }}
               placeholder="ورود..."
               className="bg-input text-foreground"
               dir="ltr"
             />
-            <Button className="w-full" onClick={() => {
-              if (pass === OWNER_PASSPHRASE) { unlockOwner(); setAuthed(true); }
+            <Button className="w-full" onClick={async () => {
+              const valid = await verifyPassphrase(pass);
+              if (valid) { unlockOwner(); setAuthed(true); }
             }}>
               ورود
             </Button>
