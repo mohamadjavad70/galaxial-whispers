@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Hammer, BarChart3, FolderKanban, Shield, Link2, AlertTriangle } from "lucide-react";
-import ChatOverlay from "@/components/ChatOverlay";
+import SunCoreChat from "@/components/SunCoreChat";
 import GolGolab from "@/components/GolGolab";
 
 const integrations = [
@@ -138,7 +138,7 @@ export default function QCore() {
       </div>
 
       <GolGolab onClick={() => setChatOpen(true)} />
-      <ChatOverlay open={chatOpen} onOpenChange={setChatOpen} />
+      <SunCoreChat open={chatOpen} onOpenChange={setChatOpen} />
     </motion.div>
   );
 }
