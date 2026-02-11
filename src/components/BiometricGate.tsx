@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Shield, Camera, Mic, MapPin, Lock, Unlock, Scan } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { OWNER_PASSPHRASE, unlockOwner, isOwnerUnlocked } from "@/lib/ownerGate";
+import { verifyPassphrase, unlockOwner, isOwnerUnlocked } from "@/lib/ownerGate";
 import { logAction } from "@/lib/geneticHash";
 
 interface BiometricGateProps {
@@ -97,8 +97,9 @@ export default function BiometricGate({ open, onClose, onNavigate }: BiometricGa
     }, 2500);
   }, [startCamera]);
 
-  const handlePassSubmit = useCallback(() => {
-    if (pass === OWNER_PASSPHRASE) {
+  const handlePassSubmit = useCallback(async () => {
+    const valid = await verifyPassphrase(pass);
+    if (valid) {
       unlockOwner();
       setError(false);
       setPhase("granted");

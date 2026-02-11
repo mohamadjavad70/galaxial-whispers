@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Lock, Shield } from "lucide-react";
-import { OWNER_PASSPHRASE, unlockOwner, isOwnerUnlocked } from "@/lib/ownerGate";
+import { verifyPassphrase, unlockOwner, isOwnerUnlocked } from "@/lib/ownerGate";
 import { logAction } from "@/lib/geneticHash";
 
 interface SunGateModalProps {
@@ -17,14 +17,15 @@ export default function SunGateModal({ open, onClose, onNavigate }: SunGateModal
   const [error, setError] = useState(false);
   const ownerUnlocked = isOwnerUnlocked();
 
-  const handleEnterCommand = useCallback(() => {
+  const handleEnterCommand = useCallback(async () => {
     if (ownerUnlocked) {
       logAction("enter_command", "sun");
       onNavigate("/command-center");
       onClose();
       return;
     }
-    if (pass === OWNER_PASSPHRASE) {
+    const valid = await verifyPassphrase(pass);
+    if (valid) {
       unlockOwner();
       setError(false);
       logAction("owner_unlocked", "sun");
