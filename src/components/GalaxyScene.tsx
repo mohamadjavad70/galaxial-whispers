@@ -6,6 +6,7 @@ import type { StarConfig } from "@/data/starRegistry";
 import { useParallax } from "@/hooks/useParallax";
 import ProceduralPlanet from "./galaxy/ProceduralPlanet";
 import ParticleTrail from "./galaxy/ParticleTrail";
+import InfiniteDepthShader from "./galaxy/InfiniteDepthShader";
 import * as THREE from "three";
 
 /* ─── Background Planets for depth ─── */
@@ -138,6 +139,9 @@ export default function GalaxyScene({ onStarClick }: GalaxySceneProps) {
     <div className="relative w-full h-full">
       <Canvas camera={{ position: [0, 0, 14], fov: 55 }} dpr={[1, 1.5]}>
         <Suspense fallback={null}>
+          {/* Infinite depth shader background */}
+          <InfiniteDepthShader layers={6} density={5} color="#4060aa" />
+          
           <ambientLight intensity={0.12} />
           <pointLight position={[10, 10, 10]} intensity={0.25} />
           <pointLight position={[-8, -5, 5]} intensity={0.1} color="#4060aa" />
