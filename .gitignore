@@ -1,6 +1,62 @@
+# Environment variables
 .env
+.env.local
+.env.*.local
+
+# Private keys and certificates
 *.pem
 *.pub
+*.key
+*.crt
+*.pfx
 *api_key*
+
+# Dependencies
 node_modules/
+/node_modules
+/.pnp
+.pnp.js
+
+# Production build
+/dist
+/build
+
+# Development
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+/coverage
+/.nyc_output
+
+# Cache
+.vite
+.eslintcache
+
+# NVM
 .nvm/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Stripe and payment test files
+.stripe_test_keys
+
+# Secrets and credentials
+secrets/
+.credentials

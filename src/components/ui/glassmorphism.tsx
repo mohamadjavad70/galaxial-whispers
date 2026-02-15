@@ -173,6 +173,8 @@ export interface GlassContainerProps extends React.HTMLAttributes<HTMLDivElement
 
 export const GlassContainer = React.forwardRef<HTMLDivElement, GlassContainerProps>(
   ({ className, glow = false, glowColor = 'primary', children, ...props }, ref) => {
+    const glowStyle = glow && glowColor ? { boxShadow: `0 0 40px ${glowColor}` } : undefined;
+    
     return (
       <div
         ref={ref}
@@ -182,9 +184,9 @@ export const GlassContainer = React.forwardRef<HTMLDivElement, GlassContainerPro
           'backdrop-blur-2xl backdrop-saturate-150',
           'border border-white/10',
           'shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]',
-          glow && `shadow-[0_0_40px_${glowColor}]`,
           className
         )}
+        style={glowStyle}
         {...props}
       >
         {children}

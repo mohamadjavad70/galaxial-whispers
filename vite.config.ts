@@ -19,4 +19,19 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 3D Graphics
+          "vendor-3d": ["three", "@react-three/fiber", "@react-three/drei"],
+          // UI & Animation
+          "vendor-ui": ["framer-motion", "lucide-react", "react-router-dom"],
+          // Utilities
+          "vendor-utils": ["@tanstack/react-query", "sonner", "recharts"],
+        },
+      },
+    },
+  },
 }));
