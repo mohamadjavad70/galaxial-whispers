@@ -237,7 +237,7 @@ export const GlassProgress = React.forwardRef<HTMLDivElement, GlassProgressProps
 GlassProgress.displayName = 'GlassProgress';
 
 /* ── Glass Tooltip ── */
-export interface GlassTooltipProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface GlassTooltipProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'content'> {
   content: React.ReactNode;
 }
 

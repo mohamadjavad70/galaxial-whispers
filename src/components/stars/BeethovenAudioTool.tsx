@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Music, Mic, Play, Pause, Square, Volume2,
-  BarChart3, Waveform, Radio, Download,
+  BarChart3, AudioWaveform, Radio, Download,
 } from 'lucide-react';
 
 interface Note {
@@ -272,7 +272,7 @@ export default function BeethovenAudioTool() {
             {/* Waveform */}
             <Card className="p-4 bg-card/40 backdrop-blur-sm border-border/20">
               <div className="flex items-center gap-2 mb-3">
-                <Waveform className="w-4 h-4 text-primary" />
+                <AudioWaveform className="w-4 h-4 text-primary" />
                 <h3 className="text-xs font-semibold">Waveform</h3>
               </div>
               <div className="relative h-24 bg-secondary/20 rounded">

@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Boxes, Trash2, Download, Upload, RotateCcw,
-  Grid3x3, Cube, Save, Grid,
+  Grid3x3, Box as CubeIcon, Save, Grid,
 } from 'lucide-react';
 
 interface Block {
@@ -250,7 +250,7 @@ export default function OpenWorldTool() {
             <Boxes className="w-5 h-5 text-green-500" />
             <h2 className="text-foreground font-bold text-sm">Open World Builder</h2>
             <Badge variant="outline" className="text-xs">
-              <Cube className="w-3 h-3 mr-1" />
+              <CubeIcon className="w-3 h-3 mr-1" />
               {blocks.length} blocks
             </Badge>
           </div>
