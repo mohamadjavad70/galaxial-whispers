@@ -1,0 +1,6 @@
+.env
+*.pem
+*.pub
+*api_key*
+node_modules/
+.nvm/
