@@ -37,7 +37,15 @@ const App = () => {
     const handleRejection = (event: PromiseRejectionEvent) => {
       // Suppress errors from browser extensions (e.g. MetaMask)
       const msg = String(event.reason?.message || event.reason || "");
-      if (msg.includes("MetaMask") || msg.includes("ethereum")) {
+      const stack = String(event.reason?.stack || "");
+      // Suppress errors from browser extensions (wallets, injected scripts)
+      if (
+        msg.includes("MetaMask") ||
+        msg.includes("ethereum") ||
+        msg.includes("func sseError not found") ||
+        stack.includes("chrome-extension://") ||
+        stack.includes("moz-extension://")
+      ) {
         event.preventDefault();
       }
     };
