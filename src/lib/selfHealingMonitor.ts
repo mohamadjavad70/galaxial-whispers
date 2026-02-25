@@ -61,11 +61,21 @@ class SelfHealingMonitor {
 
     // Global error handler
     window.addEventListener('error', (event) => {
+      // Skip extension errors
+      if (event.filename?.includes('extension://')) return;
       this.captureError('error', [event.message], event.error?.stack, event.filename);
     });
 
     // Unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
+      const stack = String(event.reason?.stack || '');
+      const msg = String(event.reason?.message || event.reason || '');
+      // Skip browser extension errors
+      if (
+        stack.includes('chrome-extension://') ||
+        stack.includes('moz-extension://') ||
+        msg.includes('func sseError not found')
+      ) return;
       this.captureError('error', [event.reason], undefined, 'Promise');
     });
   }
