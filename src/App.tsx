@@ -35,23 +35,41 @@ function AnimatedRoutes() {
 
 const App = () => {
   useEffect(() => {
+    // Suppress runtime errors from browser extensions (wallets, injected scripts)
+    const handleError = (event: ErrorEvent) => {
+      const src = event.filename || "";
+      const msg = event.message || "";
+      if (
+        src.includes("chrome-extension://") ||
+        src.includes("moz-extension://") ||
+        msg.includes("ethereum") ||
+        msg.includes("Cannot redefine property")
+      ) {
+        event.preventDefault();
+      }
+    };
+
     const handleRejection = (event: PromiseRejectionEvent) => {
-      // Suppress errors from browser extensions (e.g. MetaMask)
       const msg = String(event.reason?.message || event.reason || "");
       const stack = String(event.reason?.stack || "");
-      // Suppress errors from browser extensions (wallets, injected scripts)
       if (
         msg.includes("MetaMask") ||
         msg.includes("ethereum") ||
         msg.includes("func sseError not found") ||
+        msg.includes("Cannot redefine property") ||
         stack.includes("chrome-extension://") ||
         stack.includes("moz-extension://")
       ) {
         event.preventDefault();
       }
     };
+
+    window.addEventListener("error", handleError);
     window.addEventListener("unhandledrejection", handleRejection);
-    return () => window.removeEventListener("unhandledrejection", handleRejection);
+    return () => {
+      window.removeEventListener("error", handleError);
+      window.removeEventListener("unhandledrejection", handleRejection);
+    };
   }, []);
 
   return (
