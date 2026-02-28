@@ -12,6 +12,7 @@ import QCore from "./pages/QCore";
 import CommandCenter from "./pages/CommandCenter";
 import Command from "./pages/Command";
 import SunCorePage from "./pages/SunCore";
+import CommandDashboard from "./pages/CommandDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ function AnimatedRoutes() {
         <Route path="/command-center" element={<CommandCenter />} />
         <Route path="/command" element={<Command />} />
         <Route path="/sun-core" element={<SunCorePage />} />
+        <Route path="/empire" element={<CommandDashboard />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AnimatePresence>

@@ -145,12 +145,17 @@ export default function GalaxyScene({ onStarClick }: GalaxySceneProps) {
           <ambientLight intensity={0.12} />
           <pointLight position={[10, 10, 10]} intensity={0.25} />
           <pointLight position={[-8, -5, 5]} intensity={0.1} color="#4060aa" />
-          <Stars radius={80} depth={60} count={4000} factor={4} saturation={0.2} fade speed={0.5} />
+          {/* NASA deep-field multi-layer stars */}
+          <Stars radius={250} depth={180} count={8000} factor={5} saturation={0.15} fade speed={0.2} />
+          <Stars radius={120} depth={80}  count={4000} factor={3} saturation={0.3}  fade speed={0.4} />
+          <Stars radius={40}  depth={30}  count={2000} factor={2} saturation={0.5}  fade speed={0.6} />
 
           <OrbitControls
             autoRotate
             autoRotateSpeed={0.25}
-            enableZoom={false}
+            enableZoom={true}
+            minDistance={5}
+            maxDistance={50}
             enablePan={false}
             maxPolarAngle={Math.PI * 0.7}
             minPolarAngle={Math.PI * 0.3}
