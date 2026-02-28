@@ -201,7 +201,10 @@ export default function SolarSystemScene({ onNavigate, onSunClick }: SolarSystem
       <Canvas camera={{ position: [0, 12, 25], fov: 55 }} dpr={[1, 1.5]}>
         <Suspense fallback={null}>
           <ambientLight intensity={0.08} />
-          <Stars radius={100} depth={80} count={3000} factor={4} saturation={0.2} fade speed={0.3} />
+          {/* NASA-scale deep field: multiple star layers for depth */}
+          <Stars radius={300} depth={200} count={8000} factor={6} saturation={0.15} fade speed={0.15} />
+          <Stars radius={150} depth={100} count={4000} factor={3} saturation={0.3} fade speed={0.3} />
+          <Stars radius={50}  depth={40}  count={2000} factor={2} saturation={0.5} fade speed={0.5} />
 
           <TimeDriver timeScale={effectiveTimeScale} timeRef={globalTimeRef} />
 

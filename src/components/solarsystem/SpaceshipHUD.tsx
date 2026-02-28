@@ -17,6 +17,7 @@ import type { StarConfig } from "@/data/starRegistry";
 import type { HUDSettings, HUDMode } from "@/hooks/useHUDSettings";
 import type { NavMode, FlightTelemetry } from "./FlightCore";
 import { getLedger, type LedgerEntry } from "@/lib/geneticHash";
+import { getEmpireSnapshot } from "@/lib/empireStats";
 
 /* ── helpers ── */
 const speedPresets = [0.25, 1, 4, 16];
@@ -95,6 +96,7 @@ export default function SpaceshipHUD({
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const ownerMode = isOwnerUnlocked();
   const mode = settings.hudMode;
+  const empire = getEmpireSnapshot();
 
   // Ambient pad
   const { started: padStarted, start: startPad } = useAmbientPad(settings.audioMuted);
@@ -251,6 +253,31 @@ export default function SpaceshipHUD({
 
         {/* ─── RIGHT: Telemetry + Controls ─── */}
         <div className={`pointer-events-auto ${G} p-2.5 space-y-2 min-w-[170px] max-w-[210px]`}>
+          {/* Empire Integrity Bar */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-primary/70 text-[8px] font-bold tracking-wide">EMPIRE</span>
+              <span className={`font-mono text-[9px] font-bold ${empire.integrity > 70 ? "text-emerald-400" : "text-amber-400"}`}>
+                {empire.integrity}%
+              </span>
+            </div>
+            <div className="w-full h-1 bg-card/20 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-1000"
+                style={{
+                  width: `${empire.integrity}%`,
+                  background: empire.integrity > 70
+                    ? "linear-gradient(90deg, hsl(var(--primary)), #10b981)"
+                    : "linear-gradient(90deg, #f59e0b, #ef4444)",
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-[7px] text-muted-foreground/40">
+              <span>{empire.activeModules}/{empire.totalModules} ماژول</span>
+              <span>{empire.readinessAvg}% آمادگی</span>
+            </div>
+          </div>
+
           {/* Compact telemetry */}
           <div className="flex items-center justify-between">
             <span className="text-primary/70 text-[8px] font-bold tracking-wide">تلمتری</span>
