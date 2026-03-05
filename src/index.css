@@ -94,3 +94,6 @@
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100vh); }
 }
+.glow-effect {
+  box-shadow: 0 0 40px var(--glow-color);
+}

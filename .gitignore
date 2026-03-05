@@ -1,6 +1,6 @@
+node_modules
 .env
-*.pem
-*.pub
-*api_key*
-node_modules/
-.nvm/
+.env.local
+dist
+.DS_Store
+*.log
