@@ -69,21 +69,29 @@ export default function SunCoreChat({ open, onOpenChange }: SunCoreChatProps) {
     setThinking(true);
     logAction("suncore_prompt", "golgolab");
 
-    // Simulate reasoning delay
     setTimeout(() => {
-      const reasoning = simulateExecutiveReasoning(trimmed);
+      try {
+        const reasoning = simulateExecutiveReasoning(trimmed);
+        const responseText = `📊 **تحلیل اجرایی:**\n${reasoning.internalQuestions.slice(0, 3).map((q) => `• ${q.question} → ${q.answer}`).join("\n")}\n\n🎯 **پاسخ نهایی:**\n${reasoning.finalAnswer}\n\n📋 **اقدامات پیشنهادی:**\n${reasoning.actionableAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\n${reasoning.relevantApps.length > 0 ? `🛠️ **ابزارهای مرتبط:** ${reasoning.relevantApps.map((a) => `${a.name} (${a.topFeatures[0]})`).join(" • ")}` : ""}\n\n❓ **${reasoning.followUpQuestion}**`;
 
-      const responseText = `📊 **تحلیل اجرایی:**\n${reasoning.internalQuestions.slice(0, 3).map((q) => `• ${q.question} → ${q.answer}`).join("\n")}\n\n🎯 **پاسخ نهایی:**\n${reasoning.finalAnswer}\n\n📋 **اقدامات پیشنهادی:**\n${reasoning.actionableAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\n${reasoning.relevantApps.length > 0 ? `🛠️ **ابزارهای مرتبط:** ${reasoning.relevantApps.map((a) => `${a.name} (${a.topFeatures[0]})`).join(" • ")}` : ""}\n\n❓ **${reasoning.followUpQuestion}**`;
-
-      const botMsg: ChatMessage = {
-        id: ++idCounter,
-        role: "suncore",
-        text: responseText,
-        reasoning,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
-      setThinking(false);
+        const botMsg: ChatMessage = {
+          id: ++idCounter,
+          role: "suncore",
+          text: responseText,
+          reasoning,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } catch {
+        setMessages((prev) => [...prev, {
+          id: ++idCounter,
+          role: "suncore",
+          text: "⚠️ خطا در پردازش. لطفاً دوباره تلاش کنید.",
+          timestamp: Date.now(),
+        }]);
+      } finally {
+        setThinking(false);
+      }
     }, 1500 + Math.random() * 1000);
   }, [input, thinking]);
 
