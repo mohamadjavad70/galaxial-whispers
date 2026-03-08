@@ -103,47 +103,45 @@ export default function SunCoreChatEnhanced({ open, onOpenChange }: SunCoreChatE
     setThinking(true);
     logAction("suncore_prompt", "golgolab");
 
+    const buildResponse = (reasoning: {
+      internalQuestions: Array<{ question: string; answer: string }>;
+      finalAnswer: string;
+      actionableAnswers: string[];
+      relevantApps: Array<{ name: string; category: string; topFeatures: string[] }>;
+      followUpQuestion: string;
+      strategicQuestions: string[];
+    }) => {
+      const responseText = `📊 **تحلیل اجرایی:**\n${reasoning.internalQuestions.slice(0, 3).map((q) => `• ${q.question} → ${q.answer}`).join("\n")}\n\n🎯 **پاسخ نهایی:**\n${reasoning.finalAnswer}\n\n📋 **اقدامات پیشنهادی:**\n${reasoning.actionableAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\n${reasoning.relevantApps.length > 0 ? `🛠️ **ابزارهای مرتبط:** ${reasoning.relevantApps.map((a) => a.name).join(" • ")}` : ""}\n\n❓ **${reasoning.followUpQuestion}**`;
+      const botMsg: ChatMessage = {
+        id: ++idCounter,
+        role: "suncore",
+        text: responseText,
+        reasoning: reasoning as ExecutiveResponse,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, botMsg]);
+      setThinking(false);
+    };
+
     try {
-      // Try backend first
       if (backendStatus === 'online') {
         const response = await qmetaramApi.executeReasoningProtocol(trimmed);
-        const responseText = `📊 **تحلیل اجرایی:**\n${response.internalQuestions.slice(0, 3).map((q) => `• ${q.question} → ${q.answer}`).join("\n")}\n\n🎯 **پاسخ نهایی:**\n${response.finalAnswer}\n\n📋 **اقدامات پیشنهادی:**\n${response.actionableAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\n${response.relevantApps.length > 0 ? `🛠️ **ابزارهای مرتبط:** ${response.relevantApps.map((a) => `${a.name}`).join(" • ")}` : ""}\n\n❓ **${response.followUpQuestion}**`;
-        
-        const botMsg: ChatMessage = {
-          id: ++idCounter,
-          role: "suncore",
-          text: responseText,
-          reasoning: {
-            ...response,
-            internalQuestions: response.internalQuestions,
-            strategicQuestions: response.strategicQuestions,
-            actionableAnswers: response.actionableAnswers,
-            followUpQuestion: response.followUpQuestion,
-            finalAnswer: response.finalAnswer,
-            relevantApps: response.relevantApps,
-          },
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, botMsg]);
+        buildResponse(response);
       } else {
-        // Fallback to local simulation
+        // Offline: use setTimeout, clear thinking inside the callback
         setTimeout(() => {
           const reasoning = simulateExecutiveReasoning(trimmed);
-          const responseText = `📊 **تحلیل اجرایی:**\n${reasoning.internalQuestions.slice(0, 3).map((q) => `• ${q.question} → ${q.answer}`).join("\n")}\n\n🎯 **پاسخ نهایی:**\n${reasoning.finalAnswer}\n\n📋 **اقدامات پیشنهادی:**\n${reasoning.actionableAnswers.map((a, i) => `${i + 1}. ${a}`).join("\n")}\n\n${reasoning.relevantApps.length > 0 ? `🛠️ **ابزارهای مرتبط:** ${reasoning.relevantApps.map((a) => `${a.name} (${a.topFeatures[0]})`).join(" • ")}` : ""}\n\n❓ **${reasoning.followUpQuestion}**`;
-
-          const botMsg: ChatMessage = {
-            id: ++idCounter,
-            role: "suncore",
-            text: responseText,
-            reasoning,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, botMsg]);
+          buildResponse(reasoning);
         }, 1500 + Math.random() * 1000);
       }
     } catch (error) {
       console.error('Chat error:', error);
-    } finally {
+      setMessages((prev) => [...prev, {
+        id: ++idCounter,
+        role: "suncore",
+        text: "⚠️ خطا در پردازش. لطفاً دوباره تلاش کنید.",
+        timestamp: Date.now(),
+      }]);
       setThinking(false);
     }
   }, [input, thinking, backendStatus]);
