@@ -245,7 +245,6 @@ export const GlassTooltip = React.forwardRef<HTMLDivElement, GlassTooltipProps>(
   ({ className, content, children, ...props }, ref) => {
     return (
       <div ref={ref} className={cn('relative group', className)} {...props}>
-      style={glowStyle}
         {children}
         <div
           className={cn(
