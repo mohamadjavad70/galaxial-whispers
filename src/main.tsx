@@ -10,6 +10,7 @@ const suppressExtensionErrors = (event: PromiseRejectionEvent) => {
   const stack = String(event.reason?.stack || "");
   if (
     msg.includes("func sseError not found") ||
+    msg.includes("Origin not allowed") ||
     msg.includes("MetaMask") ||
     msg.includes("ethereum") ||
     msg.includes("Cannot redefine property") ||
